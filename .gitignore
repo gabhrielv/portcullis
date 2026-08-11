@@ -1,0 +1,25 @@
+# segredos e estado — desde o primeiro commit
+*.tfvars
+!*.tfvars.example
+.env
+!.env.example
+*.pem
+*.key
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# sistema
+.DS_Store
