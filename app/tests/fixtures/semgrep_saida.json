@@ -1,0 +1,47 @@
+{
+  "version": "1.172.0",
+  "results": [
+    {
+      "check_id": "python.lang.security.audit.formatted-sql-query",
+      "path": "backend/app/repo/user.py",
+      "start": { "line": 88, "col": 9 },
+      "end": { "line": 88, "col": 62 },
+      "extra": {
+        "severity": "ERROR",
+        "message": "Detected possible formatted SQL query.\n",
+        "metadata": { "cwe": ["CWE-89"], "category": "security", "confidence": "HIGH" }
+      }
+    },
+    {
+      "check_id": "python.sqlalchemy.performance.performance-improvements.len-all-count",
+      "path": "backend/app/main.py",
+      "start": { "line": 12, "col": 1 },
+      "end": { "line": 14, "col": 20 },
+      "extra": {
+        "severity": "WARNING",
+        "message": "Use count() instead of len(all())",
+        "metadata": { "category": "performance" }
+      }
+    },
+    {
+      "check_id": "regra.de.terceiro.sem.metadados",
+      "path": "backend/app/outro.py",
+      "start": { "line": 3, "col": 1 },
+      "end": { "line": 3, "col": 10 },
+      "extra": {
+        "severity": "WARNING",
+        "message": "regra sem metadata",
+        "metadata": {}
+      }
+    }
+  ],
+  "errors": [
+    {
+      "type": "PartialParsing",
+      "level": "warn",
+      "path": "frontend/components/events/event-qa.tsx",
+      "message": "Syntax error at line frontend/components/events/event-qa.tsx:243:\n `& Respostas` was unexpected"
+    }
+  ],
+  "paths": { "scanned": ["backend/app/repo/user.py", "backend/app/main.py"] }
+}

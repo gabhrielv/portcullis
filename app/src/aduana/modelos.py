@@ -40,12 +40,16 @@ class FaixaLinhas:
 
 @dataclass(frozen=True)
 class Achado:
+    """`categoria` é o `metadata.category` do semgrep: security, performance,
+    correctness. Vem `None` quando a regra não declara."""
+
     regra: str
     severidade: Severidade
     caminho: str
     linha_inicio: int
     linha_fim: int
     mensagem: str
+    categoria: str | None = None
 
 
 @dataclass(frozen=True)

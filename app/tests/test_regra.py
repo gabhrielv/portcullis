@@ -11,7 +11,12 @@ from aduana.modelos import (
 ARQUIVO = "backend/app/repo/user.py"
 
 
-def achado(linha: int, severidade: Severidade = Severidade.ERRO, caminho: str = ARQUIVO):
+def achado(
+    linha: int,
+    severidade: Severidade = Severidade.ERRO,
+    caminho: str = ARQUIVO,
+    categoria: str | None = None,
+):
     return Achado(
         regra="python.lang.security.audit.sqli",
         severidade=severidade,
@@ -19,6 +24,7 @@ def achado(linha: int, severidade: Severidade = Severidade.ERRO, caminho: str = 
         linha_inicio=linha,
         linha_fim=linha,
         mensagem="possível SQL injection",
+        categoria=categoria,
     )
 
 
@@ -113,3 +119,22 @@ def test_nao_conclui_nao_libera_e_carrega_o_motivo():
     assert v.motivo == "semgrep saiu com 2"
     assert v.bloqueantes == ()
     assert v.versao_regra == VERSAO_REGRA
+
+
+def test_aviso_de_seguranca_bloqueia():
+    a = achado(88, Severidade.AVISO, categoria="security")
+    v = decidir([a], contexto({ARQUIVO: (FaixaLinhas(80, 95),)}))
+    assert v.estado is EstadoVeredito.BLOQUEADO
+
+
+def test_aviso_de_performance_nao_bloqueia():
+    a = achado(88, Severidade.AVISO, categoria="performance")
+    v = decidir([a], contexto({ARQUIVO: (FaixaLinhas(80, 95),)}))
+    assert v.estado is EstadoVeredito.LIBERADO
+    assert len(v.avisos) == 1
+
+
+def test_erro_sem_categoria_declarada_continua_bloqueando():
+    # Regra de terceiro sem metadados não pode fazer o portão falhar aberto.
+    v = decidir([achado(88)], contexto({ARQUIVO: (FaixaLinhas(80, 95),)}))
+    assert v.estado is EstadoVeredito.BLOQUEADO

@@ -1,7 +1,9 @@
 PY := .venv/bin/python
 MARCA := .venv/.instalado
+REGRAS := build/regras.yaml
+URL_REGRAS := https://semgrep.dev/c/p/default
 
-.PHONY: instalar teste teste-integracao lint imagem infra destruir
+.PHONY: instalar teste teste-integracao lint regras imagem infra destruir
 
 .venv:
 	python3 -m venv .venv
@@ -17,8 +19,16 @@ instalar: $(MARCA)
 teste: $(MARCA)
 	cd app && ../$(PY) -m pytest -v
 
-teste-integracao: $(MARCA)
-	cd app && ../$(PY) -m pytest -v -m integracao
+# Regras congeladas num arquivo: `--config=auto` muda sem aviso e exige rede,
+# o que tornaria o corpus da D12 irreproduzível.
+$(REGRAS):
+	mkdir -p build
+	curl -sSL $(URL_REGRAS) -o $(REGRAS)
+
+regras: $(REGRAS)
+
+teste-integracao: $(MARCA) $(REGRAS)
+	cd app && ADUANA_REGRAS=$(CURDIR)/$(REGRAS) ../$(PY) -m pytest -v -m integracao
 
 lint: $(MARCA)
 	cd app && ../$(PY) -m ruff check src tests

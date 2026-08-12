@@ -16,9 +16,18 @@ from aduana.modelos import (
     Veredito,
 )
 
-VERSAO_REGRA = "1"
+VERSAO_REGRA = "2"
 
-SEVERIDADES_BLOQUEANTES = frozenset({Severidade.ERRO})
+CATEGORIA_SEGURANCA = "security"
+
+
+def _bloqueia(achado: Achado) -> bool:
+    # ERRO bloqueia sempre. AVISO só quando a regra se declara de segurança —
+    # medido no hoppr em 12/08/2026: dos 12 avisos, 4 eram de performance.
+    # Categoria ausente nunca promove, mas também nunca rebaixa um ERRO.
+    if achado.severidade is Severidade.ERRO:
+        return True
+    return achado.severidade is Severidade.AVISO and achado.categoria == CATEGORIA_SEGURANCA
 
 
 def _e_novo(achado: Achado, contexto: Contexto) -> bool:
@@ -45,7 +54,7 @@ def decidir(
     for achado in achados:
         if not _e_novo(achado, contexto):
             preexistentes.append(achado)
-        elif achado.severidade in SEVERIDADES_BLOQUEANTES:
+        elif _bloqueia(achado):
             bloqueantes.append(achado)
         else:
             avisos.append(achado)

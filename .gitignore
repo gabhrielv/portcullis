@@ -10,6 +10,9 @@
 terraform.tfstate
 terraform.tfstate.backup
 
+# artefatos de build (regras do semgrep, zip das lambdas)
+build/
+
 # python
 __pycache__/
 *.py[cod]
