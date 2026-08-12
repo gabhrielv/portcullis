@@ -2,11 +2,14 @@
 name = "aduana"
 version = "0.1.0"
 requires-python = ">=3.12"
-# Vazio de propósito: o container do analisador instala `pip install .` e roda
-# só com a biblioteca padrão. Quem fala com AWS e GitHub pede o extra `nuvem`.
+# Vazio de propósito: cada perfil abaixo instala só o que usa.
 dependencies = []
 
 [project.optional-dependencies]
+# O container fala com o S3, nunca com o GitHub.
+analisador = [
+    "boto3>=1.34",
+]
 nuvem = [
     "boto3>=1.34",
     "requests>=2.31",
