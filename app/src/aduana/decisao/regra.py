@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from aduana.decisao.excecoes import silenciado
 from aduana.modelos import (
     Achado,
     Contexto,
@@ -50,10 +51,13 @@ def decidir(
     bloqueantes: list[Achado] = []
     avisos: list[Achado] = []
     preexistentes: list[Achado] = []
+    silenciados: list[Achado] = []
 
     for achado in achados:
         if not _e_novo(achado, contexto):
             preexistentes.append(achado)
+        elif silenciado(achado.regra, achado.caminho):
+            silenciados.append(achado)
         elif _bloqueia(achado):
             bloqueantes.append(achado)
         else:
@@ -66,6 +70,7 @@ def decidir(
         bloqueantes=tuple(bloqueantes),
         avisos=tuple(avisos),
         preexistentes=tuple(preexistentes),
+        silenciados=tuple(silenciados),
         versao_regra=VERSAO_REGRA,
         degradado=degradado,
         motivo=motivo,

@@ -138,3 +138,40 @@ def test_erro_sem_categoria_declarada_continua_bloqueando():
     # Regra de terceiro sem metadados não pode fazer o portão falhar aberto.
     v = decidir([achado(88)], contexto({ARQUIVO: (FaixaLinhas(80, 95),)}))
     assert v.estado is EstadoVeredito.BLOQUEADO
+
+
+def test_achado_em_excecao_declarada_nao_bloqueia():
+    a = Achado(
+        regra="python.jwt.security.jwt-hardcode.jwt-python-hardcoded-secret",
+        severidade=Severidade.ERRO,
+        caminho="backend/tests/test_security.py",
+        linha_inicio=278,
+        linha_fim=278,
+        mensagem="segredo fixo",
+        categoria="security",
+    )
+    v = decidir([a], contexto({"backend/tests/test_security.py": (FaixaLinhas(270, 280),)}))
+    assert v.estado is EstadoVeredito.LIBERADO
+    assert len(v.silenciados) == 1
+    assert v.bloqueantes == ()
+
+
+def test_excecao_nao_vale_para_outro_caminho():
+    a = Achado(
+        regra="python.jwt.security.jwt-hardcode.jwt-python-hardcoded-secret",
+        severidade=Severidade.ERRO,
+        caminho="backend/app/auth.py",
+        linha_inicio=10,
+        linha_fim=10,
+        mensagem="segredo fixo",
+        categoria="security",
+    )
+    v = decidir([a], contexto({"backend/app/auth.py": (FaixaLinhas(1, 50),)}))
+    assert v.estado is EstadoVeredito.BLOQUEADO
+    assert v.silenciados == ()
+
+
+def test_excecao_nao_vale_para_outra_regra():
+    a = achado(278, caminho="backend/tests/test_security.py", categoria="security")
+    v = decidir([a], contexto({"backend/tests/test_security.py": (FaixaLinhas(270, 280),)}))
+    assert v.estado is EstadoVeredito.BLOQUEADO

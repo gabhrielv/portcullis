@@ -87,9 +87,8 @@ def test_rodar_sem_conjunto_de_regras_falha_alto(tmp_path, monkeypatch):
         rodar(tmp_path)
 
 
-def test_rodar_pede_supressao_inline_desligada(tmp_path, monkeypatch):
-    # Sem --disable-nosem, um `# nosemgrep` escrito no PR desliga o portão.
-    capturado = {}
+def _capturar(monkeypatch) -> dict:
+    capturado: dict = {}
 
     def falso_run(comando, **kw):
         capturado["comando"] = comando
@@ -97,25 +96,30 @@ def test_rodar_pede_supressao_inline_desligada(tmp_path, monkeypatch):
         return subprocess.CompletedProcess(comando, 0, stdout='{"results":[],"errors":[]}', stderr="")
 
     monkeypatch.setattr(subprocess, "run", falso_run)
-    rodar(tmp_path, regras="/tmp/regras.yaml")
+    return capturado
+
+
+def test_rodar_pede_supressao_inline_desligada(tmp_path, monkeypatch):
+    # Sem --disable-nosem, um `# nosemgrep` escrito no PR desliga o portão.
+    regras = tmp_path / "regras.yaml"
+    regras.write_text("rules: []\n")
+    capturado = _capturar(monkeypatch)
+
+    rodar(tmp_path, regras=regras)
 
     assert "--disable-nosem" in capturado["comando"]
     assert "--metrics=off" in capturado["comando"]
-    assert "--config=/tmp/regras.yaml" in capturado["comando"]
+    assert f"--config={regras}" in capturado["comando"]
 
 
 def test_rodar_escaneia_a_raiz_por_caminho_relativo(tmp_path, monkeypatch):
     # Alvo absoluto faz o semgrep devolver caminho absoluto, e a anotação do
     # Check Run precisa do caminho relativo ao repositório.
-    capturado = {}
+    regras = tmp_path / "regras.yaml"
+    regras.write_text("rules: []\n")
+    capturado = _capturar(monkeypatch)
 
-    def falso_run(comando, **kw):
-        capturado["comando"] = comando
-        capturado["cwd"] = kw.get("cwd")
-        return subprocess.CompletedProcess(comando, 0, stdout='{"results":[],"errors":[]}', stderr="")
-
-    monkeypatch.setattr(subprocess, "run", falso_run)
-    rodar(tmp_path, regras="/tmp/regras.yaml")
+    rodar(tmp_path, regras=regras)
 
     assert capturado["comando"][-1] == "."
     assert capturado["cwd"] == tmp_path
@@ -148,3 +152,49 @@ def test_rodar_encontra_achados_reais_no_hoppr(tmp_path):
     for a in saida.achados:
         assert a.linha_inicio >= 1
         assert not a.caminho.startswith("/")
+
+
+def _regras_falsas(tmp_path):
+    a = tmp_path / "default.yaml"
+    b = tmp_path / "audit.yaml"
+    a.write_text("rules: []\n")
+    b.write_text("rules: [x]\n")
+    return a, b
+
+
+def test_rodar_aceita_varios_conjuntos_de_regras(tmp_path, monkeypatch):
+    a, b = _regras_falsas(tmp_path)
+    capturado = {}
+
+    def falso_run(comando, **kw):
+        capturado["comando"] = comando
+        return subprocess.CompletedProcess(comando, 0, stdout='{"results":[],"errors":[]}', stderr="")
+
+    monkeypatch.setattr(subprocess, "run", falso_run)
+    rodar(tmp_path, regras=f"{a},{b}")
+
+    assert f"--config={a}" in capturado["comando"]
+    assert f"--config={b}" in capturado["comando"]
+
+
+def test_hash_das_regras_identifica_o_conjunto(tmp_path, monkeypatch):
+    a, b = _regras_falsas(tmp_path)
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda comando, **kw: subprocess.CompletedProcess(
+            comando, 0, stdout='{"results":[],"errors":[]}', stderr=""
+        ),
+    )
+
+    primeiro = rodar(tmp_path, regras=f"{a},{b}").hash_regras
+    assert len(primeiro) == 12
+    assert rodar(tmp_path, regras=f"{a},{b}").hash_regras == primeiro
+
+    b.write_text("rules: [x, y]\n")
+    assert rodar(tmp_path, regras=f"{a},{b}").hash_regras != primeiro
+
+
+def test_arquivo_de_regras_ausente_falha_alto(tmp_path):
+    with pytest.raises(SemgrepFalhou, match="ausente"):
+        rodar(tmp_path, regras=str(tmp_path / "nao-existe.yaml"))

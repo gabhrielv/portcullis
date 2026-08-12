@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -26,6 +27,7 @@ class SemgrepFalhou(RuntimeError):
 class SaidaSemgrep:
     achados: tuple[Achado, ...]
     erros: tuple[dict, ...] = ()
+    hash_regras: str = ""
 
 
 def parsear(saida: dict) -> list[Achado]:
@@ -64,19 +66,37 @@ def _executavel() -> str:
     return str(vizinho) if vizinho.exists() else "semgrep"
 
 
+def _caminhos_de_regras(regras: str | Path | None) -> list[str]:
+    bruto = str(regras or os.environ.get("ADUANA_REGRAS", ""))
+    caminhos = [parte.strip() for parte in bruto.split(",") if parte.strip()]
+    if not caminhos:
+        raise SemgrepFalhou("conjunto de regras não definido (ADUANA_REGRAS)")
+
+    faltando = [c for c in caminhos if not Path(c).exists()]
+    if faltando:
+        raise SemgrepFalhou(f"arquivo de regras ausente: {', '.join(faltando)}")
+    return caminhos
+
+
+def _hash_regras(caminhos: list[str]) -> str:
+    """Identifica o conjunto que produziu o veredito. Ver D11."""
+    digest = hashlib.sha256()
+    for caminho in sorted(caminhos):
+        digest.update(Path(caminho).read_bytes())
+    return digest.hexdigest()[:12]
+
+
 def rodar(
     raiz: Path,
     regras: str | Path | None = None,
     timeout_s: int = 600,
 ) -> SaidaSemgrep:
-    caminho_regras = str(regras or os.environ.get("ADUANA_REGRAS", ""))
-    if not caminho_regras:
-        raise SemgrepFalhou("conjunto de regras não definido (ADUANA_REGRAS)")
+    caminhos_regras = _caminhos_de_regras(regras)
 
     comando = [
         _executavel(),
         "scan",
-        f"--config={caminho_regras}",
+        *(f"--config={caminho}" for caminho in caminhos_regras),
         "--json",
         "--quiet",
         # Telemetria desligada: no container o egress só permite S3.
@@ -104,4 +124,8 @@ def rodar(
         raise SemgrepFalhou(f"semgrep saiu com {proc.returncode}: {proc.stderr[:500]}")
 
     dados = json.loads(proc.stdout)
-    return SaidaSemgrep(tuple(parsear(dados)), tuple(erros_de_analise(dados)))
+    return SaidaSemgrep(
+        achados=tuple(parsear(dados)),
+        erros=tuple(erros_de_analise(dados)),
+        hash_regras=_hash_regras(caminhos_regras),
+    )

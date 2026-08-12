@@ -81,6 +81,7 @@ class Veredito:
     bloqueantes   -> achado novo com severidade bloqueante; anotação `failure`.
     avisos        -> achado novo de severidade menor; não trava.
     preexistentes -> achado em linha que o PR não tocou; só no resumo.
+    silenciados   -> achado novo que bateu numa exceção declarada; só no resumo.
     """
 
     estado: EstadoVeredito
@@ -88,5 +89,6 @@ class Veredito:
     avisos: tuple[Achado, ...]
     preexistentes: tuple[Achado, ...]
     versao_regra: str
+    silenciados: tuple[Achado, ...] = ()
     degradado: bool = False
     motivo: str | None = None
