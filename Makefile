@@ -36,7 +36,7 @@ teste-integracao: $(MARCA) $(REGRAS)
 lint: $(MARCA)
 	cd app && ../$(PY) -m ruff check src tests
 
-imagem:
+imagem: $(REGRAS)
 	docker build -f docker/analisador.Dockerfile -t aduana-analisador:local .
 
 infra:

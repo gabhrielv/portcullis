@@ -30,13 +30,33 @@ class SaidaSemgrep:
     hash_regras: str = ""
 
 
-def parsear(saida: dict) -> list[Achado]:
+def prefixo_de_regra(caminho_regras: str, raiz: Path) -> str:
+    """O semgrep prefixa o id da regra com as pastas do arquivo de regras,
+    relativas ao diretório de trabalho. Sem remover isso, o mesmo achado teria
+    ids diferentes na máquina e no container, e a lista de exceções não casaria.
+    """
+    try:
+        relativo = Path(os.path.relpath(caminho_regras, raiz))
+    except ValueError:
+        return ""
+    partes = [parte for parte in relativo.parent.parts if parte not in ("..", ".", os.sep)]
+    return ".".join(partes) + "." if partes else ""
+
+
+def _sem_prefixo(check_id: str, prefixos: tuple[str, ...]) -> str:
+    for prefixo in prefixos:
+        if prefixo and check_id.startswith(prefixo):
+            return check_id[len(prefixo) :]
+    return check_id
+
+
+def parsear(saida: dict, prefixos: tuple[str, ...] = ()) -> list[Achado]:
     achados: list[Achado] = []
     for resultado in saida.get("results", []):
         extra = resultado["extra"]
         achados.append(
             Achado(
-                regra=resultado["check_id"],
+                regra=_sem_prefixo(resultado["check_id"], prefixos),
                 severidade=Severidade(extra["severity"]),
                 caminho=resultado["path"],
                 linha_inicio=resultado["start"]["line"],
@@ -124,8 +144,9 @@ def rodar(
         raise SemgrepFalhou(f"semgrep saiu com {proc.returncode}: {proc.stderr[:500]}")
 
     dados = json.loads(proc.stdout)
+    prefixos = tuple(prefixo_de_regra(caminho, raiz) for caminho in caminhos_regras)
     return SaidaSemgrep(
-        achados=tuple(parsear(dados)),
+        achados=tuple(parsear(dados, prefixos)),
         erros=tuple(erros_de_analise(dados)),
         hash_regras=_hash_regras(caminhos_regras),
     )

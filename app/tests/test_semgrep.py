@@ -198,3 +198,29 @@ def test_hash_das_regras_identifica_o_conjunto(tmp_path, monkeypatch):
 def test_arquivo_de_regras_ausente_falha_alto(tmp_path):
     with pytest.raises(SemgrepFalhou, match="ausente"):
         rodar(tmp_path, regras=str(tmp_path / "nao-existe.yaml"))
+
+
+def test_prefixo_vem_das_pastas_do_arquivo_de_regras():
+    from aduana.analisador.semgrep import prefixo_de_regra
+
+    raiz = Path("/tmp/tmpabc/gabhrielv-hoppr-a1b2c3")
+    assert prefixo_de_regra("/opt/aduana/regras/default.yaml", raiz) == "opt.aduana.regras."
+    assert prefixo_de_regra(str(raiz.parent / "regras.yaml"), raiz) == ""
+
+
+def test_id_da_regra_nao_carrega_o_caminho_do_arquivo_de_regras():
+    # Sem isso o mesmo achado teria id diferente na maquina e no container,
+    # e a lista de excecoes nunca casaria.
+    saida = {
+        "results": [
+            {
+                "check_id": "opt.aduana.regras.python.jwt.security.jwt-hardcode",
+                "path": "a.py",
+                "start": {"line": 1},
+                "end": {"line": 1},
+                "extra": {"severity": "ERROR", "message": "m", "metadata": {}},
+            }
+        ]
+    }
+    achado = parsear(saida, ("opt.aduana.regras.",))[0]
+    assert achado.regra == "python.jwt.security.jwt-hardcode"

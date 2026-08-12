@@ -1,0 +1,101 @@
+"""Entrada do container. FUNÇÃO PURA: pacote entra, achados saem.
+
+Não conhece GitHub, não conhece a regra de decisão, não emite veredito. É a
+D14 virando código, e o test_arquitetura.py garante que continue assim.
+
+Uso:
+    python -m aduana.analisador.main /entrada /saida
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+import tempfile
+from pathlib import Path
+
+from aduana.analisador.pacote import (
+    NOME_ACHADOS,
+    NOME_CODIGO,
+    NOME_CONTEXTO,
+    extrair,
+    ler_contexto,
+)
+from aduana.analisador.semgrep import rodar
+from aduana.modelos import Achado
+
+
+def _relativizar(caminho: str, raiz: Path) -> str:
+    try:
+        return str(Path(caminho).resolve().relative_to(raiz.resolve()))
+    except ValueError:
+        return caminho
+
+
+def _serializar(achado: Achado, raiz: Path) -> dict:
+    return {
+        "regra": achado.regra,
+        "severidade": achado.severidade.value,
+        "categoria": achado.categoria,
+        "caminho": _relativizar(achado.caminho, raiz),
+        "linha_inicio": achado.linha_inicio,
+        "linha_fim": achado.linha_fim,
+        "mensagem": achado.mensagem,
+    }
+
+
+def analisar(dir_entrada: Path, dir_saida: Path) -> Path:
+    resultado: dict = {
+        "ok": False,
+        "erro": None,
+        "owner": None,
+        "repo": None,
+        "head_sha": None,
+        "hash_regras": "",
+        "achados": [],
+        "erros_de_analise": [],
+    }
+
+    try:
+        contexto = ler_contexto(dir_entrada / NOME_CONTEXTO)
+        resultado |= {
+            "owner": contexto.owner,
+            "repo": contexto.repo,
+            "head_sha": contexto.head_sha,
+        }
+
+        with tempfile.TemporaryDirectory() as temporario:
+            raiz = extrair(dir_entrada / NOME_CODIGO, Path(temporario))
+            # Sobrescreve o do PR (um `*` zeraria a análise) e anula a lista
+            # padrão do semgrep, que pula pastas de teste.
+            (raiz / ".semgrepignore").write_text("")
+
+            saida = rodar(raiz)
+            resultado |= {
+                "ok": True,
+                "hash_regras": saida.hash_regras,
+                "achados": [_serializar(a, raiz) for a in saida.achados],
+                "erros_de_analise": list(saida.erros),
+            }
+    except Exception as falha:  # noqa: BLE001
+        # Blind except de propósito: este é o ponto mais externo do processo.
+        # Container que morre calado deixa o PR travado sem mensagem, porque a
+        # publicadora só acorda quando o achados.json aparece.
+        resultado["erro"] = f"{type(falha).__name__}: {falha}"
+
+    destino = dir_saida / NOME_ACHADOS
+    destino.write_text(json.dumps(resultado, indent=2))
+    return destino
+
+
+def principal() -> int:
+    if len(sys.argv) != 3:
+        print("uso: main.py <dir_entrada> <dir_saida>", file=sys.stderr)
+        return 2
+    caminho = analisar(Path(sys.argv[1]), Path(sys.argv[2]))
+    print(caminho.read_text())
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(principal())
