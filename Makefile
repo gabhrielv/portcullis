@@ -1,4 +1,6 @@
 PY := .venv/bin/python
+# terraform e aws foram instalados em ~/.local/bin, sem sudo.
+TF := $(shell command -v terraform 2>/dev/null || echo $(HOME)/.local/bin/terraform)
 MARCA := .venv/.instalado
 DIR_REGRAS := build/regras
 REGRAS := $(DIR_REGRAS)/default.yaml $(DIR_REGRAS)/security-audit.yaml
@@ -6,7 +8,7 @@ REGRAS := $(DIR_REGRAS)/default.yaml $(DIR_REGRAS)/security-audit.yaml
 # que o outro não acha. Rodar os dois custa o mesmo tempo.
 ADUANA_REGRAS := $(CURDIR)/$(DIR_REGRAS)/default.yaml,$(CURDIR)/$(DIR_REGRAS)/security-audit.yaml
 
-.PHONY: instalar teste teste-integracao lint regras imagem infra destruir
+.PHONY: instalar teste teste-integracao lint regras imagem validar-infra infra destruir
 
 .venv:
 	python3 -m venv .venv
@@ -39,8 +41,11 @@ lint: $(MARCA)
 imagem: $(REGRAS)
 	docker build -f docker/analisador.Dockerfile -t aduana-analisador:local .
 
+validar-infra:
+	cd infra && $(TF) fmt -recursive -check && $(TF) validate
+
 infra:
-	cd infra && terraform apply
+	cd infra && $(TF) apply
 
 destruir:
-	cd infra && terraform destroy
+	cd infra && $(TF) destroy
