@@ -21,7 +21,9 @@ NOME_ACHADOS = "achados.json"
 
 # Bomba de descompressão: um .tar.gz de 50 KB expande para 50 MB sem esforço.
 # O filtro `data` não protege contra isso — ele cuida de caminho, não de volume.
-LIMITE_EXTRACAO_BYTES = 2 * 1024 * 1024 * 1024
+# O teto é 300 MB porque o /tmp da Lambda tem 512 MB fixos e o tarball baixado
+# divide esse espaço com a árvore extraída.
+LIMITE_EXTRACAO_BYTES = 300 * 1024 * 1024
 
 
 class PacoteInvalido(ValueError):
