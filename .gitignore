@@ -5,8 +5,8 @@
 !.env.example
 *.pem
 *.key
+# o .terraform.lock.hcl É versionado: fixa a versão do provider, não tem segredo
 .terraform/
-.terraform.lock.hcl
 terraform.tfstate
 terraform.tfstate.backup
 
