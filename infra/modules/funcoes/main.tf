@@ -242,3 +242,150 @@ resource "aws_lambda_event_source_mapping" "fila_para_buscadora" {
   # lote inteiro, e as mensagens que já deram certo seriam refeitas.
   batch_size = 1
 }
+
+# ---------------------------------------------------------------------------
+# Publicadora: evento do S3 -> regra -> Check Run + auditoria.
+# Fora da VPC porque fala com o github.com. É ela que decide — o analisador
+# só produz evidência.
+# ---------------------------------------------------------------------------
+
+resource "aws_iam_role" "publicadora" {
+  name = "${var.prefixo}-publicadora"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "publicadora" {
+  name = "${var.prefixo}-publicadora"
+  role = aws_iam_role.publicadora.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        # Lê os dois: o resultado em saida/ e o contexto em entrada/, que é o
+        # que diz quais linhas o PR tocou. Não escreve em nenhum dos dois.
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = ["${var.arn_bucket_pacotes}/saida/*", "${var.arn_bucket_pacotes}/entrada/*"]
+      },
+      {
+        # Só grava. Auditoria que pode ser alterada não é auditoria.
+        Effect   = "Allow"
+        Action   = ["dynamodb:PutItem"]
+        Resource = var.arn_tabela
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter"]
+        Resource = local.arn_parametros
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "${aws_cloudwatch_log_group.publicadora.arn}:*"
+      },
+    ]
+  })
+}
+
+resource "aws_cloudwatch_log_group" "publicadora" {
+  name              = "/aws/lambda/${var.prefixo}-publicadora"
+  retention_in_days = 1
+}
+
+resource "aws_lambda_function" "publicadora" {
+  function_name    = "${var.prefixo}-publicadora"
+  role             = aws_iam_role.publicadora.arn
+  handler          = "portcullis.publicador.handler.lambda_handler"
+  runtime          = "python3.12"
+  filename         = var.caminho_zip
+  source_code_hash = filebase64sha256(var.caminho_zip)
+  timeout          = 60
+  memory_size      = 256
+
+  environment {
+    variables = {
+      PORTCULLIS_TABELA          = var.nome_tabela_auditoria
+      PORTCULLIS_GITHUB_APP_ID   = var.github_app_id
+      PORTCULLIS_PARAM_CHAVE_APP = "/portcullis/github/chave-privada"
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.publicadora]
+}
+
+# Invocação por evento do S3 é ASSÍNCRONA: se a função falha, a AWS tenta mais
+# duas vezes e descarta o evento em silêncio. O merge continuaria travado
+# (fail-closed funcionando), mas sem ninguém saber por quê — e o palpite seria
+# procurar no analisador, que não teve culpa nenhuma.
+resource "aws_sqs_queue" "publicadora_mortas" {
+  name                      = "${var.prefixo}-publicadora-mortas"
+  message_retention_seconds = 1209600
+}
+
+resource "aws_lambda_function_event_invoke_config" "publicadora" {
+  function_name          = aws_lambda_function.publicadora.function_name
+  maximum_retry_attempts = 2
+
+  destination_config {
+    on_failure {
+      destination = aws_sqs_queue.publicadora_mortas.arn
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "publicadora_mortas" {
+  name = "${var.prefixo}-publicadora-mortas"
+  role = aws_iam_role.publicadora.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["sqs:SendMessage"]
+      Resource = aws_sqs_queue.publicadora_mortas.arn
+    }]
+  })
+}
+
+resource "aws_cloudwatch_metric_alarm" "publicadora_mortas" {
+  alarm_name          = "${var.prefixo}-publicadora-mortas"
+  namespace           = "AWS/SQS"
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  dimensions          = { QueueName = aws_sqs_queue.publicadora_mortas.name }
+  statistic           = "Maximum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  alarm_description   = "Publicadora falhou e o veredito nao foi publicado"
+  alarm_actions       = [var.arn_topico_alertas]
+}
+
+resource "aws_lambda_permission" "s3_invoca_publicadora" {
+  statement_id  = "AllowS3Invoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.publicadora.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = var.arn_bucket_pacotes
+}
+
+# A notificação mora aqui, e não no módulo `pacotes`, para não criar ciclo: o
+# bucket precisaria do ARN da função, e a função precisa do ARN do bucket.
+resource "aws_s3_bucket_notification" "achados" {
+  bucket = var.nome_bucket_pacotes
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.publicadora.arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = "saida/"
+    filter_suffix       = "achados.json"
+  }
+
+  depends_on = [aws_lambda_permission.s3_invoca_publicadora]
+}

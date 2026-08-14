@@ -38,3 +38,8 @@ variable "concorrencia_buscadora" {
   type    = number
   default = -1
 }
+
+variable "arn_topico_alertas" {
+  type    = string
+  default = ""
+}

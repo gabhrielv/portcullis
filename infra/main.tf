@@ -59,6 +59,7 @@ module "funcoes" {
   github_app_id         = var.github_app_id
 
   concorrencia_webhook = var.concorrencia_webhook
+  arn_topico_alertas   = module.alertas.arn_topico
 
   # O gatilho do SQS mora aqui e invoca a Lambda do analisador, que mora no
   # outro modulo. Sem isto o Terraform cria os dois em paralelo, o gatilho

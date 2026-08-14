@@ -8,7 +8,7 @@ REGRAS := $(DIR_REGRAS)/default.yaml $(DIR_REGRAS)/security-audit.yaml
 # que o outro não acha. Rodar os dois custa o mesmo tempo.
 PORTCULLIS_REGRAS := $(CURDIR)/$(DIR_REGRAS)/default.yaml,$(CURDIR)/$(DIR_REGRAS)/security-audit.yaml
 
-.PHONY: instalar teste teste-integracao lint regras imagem imagem-push \
+.PHONY: instalar teste teste-integracao lint regras imagem imagem-push subir \
         pacote-lambda validar-infra infra url-webhook destruir
 
 .venv:
@@ -86,3 +86,12 @@ imagem-push: imagem
 	  | docker login --username AWS --password-stdin $(REPO)
 	docker tag portcullis-analisador:local $(REPO):local
 	docker push $(REPO):local
+
+# Sobe tudo do zero, na ordem que funciona. Os dois `apply` sao inevitaveis:
+# Lambda de imagem nao pode ser criada apontando para imagem que ainda nao
+# existe no ECR, e o ECR so existe depois do primeiro apply.
+subir: pacote-lambda
+	cd infra && $(TF) apply -auto-approve -var=analisador_no_ar=false
+	$(MAKE) imagem-push
+	cd infra && $(TF) apply -auto-approve
+	$(MAKE) url-webhook
