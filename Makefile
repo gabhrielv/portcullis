@@ -3,6 +3,7 @@ PY := .venv/bin/python
 TF := $(shell command -v terraform 2>/dev/null || echo $(HOME)/.local/bin/terraform)
 MARCA := .venv/.instalado
 DIR_REGRAS := build/regras
+REPO_ALVO := gabhrielv/hoppr
 REGRAS := $(DIR_REGRAS)/default.yaml $(DIR_REGRAS)/security-audit.yaml
 # Os dois conjuntos não se contêm: medido em 12/08/2026, cada um acha ERROR
 # que o outro não acha. Rodar os dois custa o mesmo tempo.
@@ -75,6 +76,10 @@ url-webhook:
 	$(PY) scripts/atualizar_webhook.py \
 	  --app-id "$$(cd infra && $(TF) output -raw github_app_id)" \
 	  --url "$$(cd infra && $(TF) output -raw url_webhook)"
+	# O passo de deploy do alvo consulta esta URL, e ela tambem muda a cada
+	# apply. Sem isto o deploy consulta um endereco morto e reprova sempre.
+	cd infra && $(TF) output -raw url_api \
+	  | gh secret set PORTCULLIS_URL --repo $(REPO_ALVO)
 
 destruir:
 	cd infra && $(TF) destroy
