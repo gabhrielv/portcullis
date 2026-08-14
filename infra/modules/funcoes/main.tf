@@ -389,3 +389,87 @@ resource "aws_s3_bucket_notification" "achados" {
 
   depends_on = [aws_lambda_permission.s3_invoca_publicadora]
 }
+
+# ---------------------------------------------------------------------------
+# Consulta: GET /veredito/{owner}/{repo}/{sha}, o que o deploy pergunta.
+# É a função exposta na internet, e a política dela é a menor de todas de
+# propósito: só LÊ a tabela. Não escreve, não fala com o GitHub, não lê
+# segredo nenhum. Se ela cair, ninguém consegue liberar nada com ela.
+# ---------------------------------------------------------------------------
+
+resource "aws_iam_role" "consulta" {
+  name = "${var.prefixo}-consulta"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_cloudwatch_log_group" "consulta" {
+  name              = "/aws/lambda/${var.prefixo}-consulta"
+  retention_in_days = 1
+}
+
+resource "aws_iam_role_policy" "consulta" {
+  name = "${var.prefixo}-consulta"
+  role = aws_iam_role.consulta.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["dynamodb:GetItem"]
+        Resource = var.arn_tabela
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "${aws_cloudwatch_log_group.consulta.arn}:*"
+      },
+    ]
+  })
+}
+
+resource "aws_lambda_function" "consulta" {
+  function_name    = "${var.prefixo}-consulta"
+  role             = aws_iam_role.consulta.arn
+  handler          = "portcullis.consulta.handler.lambda_handler"
+  runtime          = "python3.12"
+  filename         = var.caminho_zip
+  source_code_hash = filebase64sha256(var.caminho_zip)
+  timeout          = 10
+  memory_size      = 256
+
+  environment {
+    variables = {
+      PORTCULLIS_TABELA = var.nome_tabela_auditoria
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.consulta]
+}
+
+resource "aws_apigatewayv2_integration" "consulta" {
+  api_id                 = aws_apigatewayv2_api.principal.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.consulta.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "consulta" {
+  api_id    = aws_apigatewayv2_api.principal.id
+  route_key = "GET /veredito/{owner}/{repo}/{sha}"
+  target    = "integrations/${aws_apigatewayv2_integration.consulta.id}"
+}
+
+resource "aws_lambda_permission" "api_consulta" {
+  statement_id  = "AllowAPIGatewayInvokeConsulta"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.consulta.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.principal.execution_arn}/*/*"
+}

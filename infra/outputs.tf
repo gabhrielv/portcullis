@@ -11,3 +11,4 @@ output "nome_funcao_webhook" { value = module.funcoes.nome_funcao_webhook }
 output "github_app_id" { value = var.github_app_id }
 output "nome_funcao_buscadora" { value = module.funcoes.nome_funcao_buscadora }
 output "url_repositorio_analisador" { value = module.analisador.url_repositorio }
+output "url_api" { value = module.funcoes.url_api }

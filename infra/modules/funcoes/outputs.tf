@@ -9,3 +9,5 @@ output "arn_execucao_api" { value = aws_apigatewayv2_api.principal.execution_arn
 output "nome_funcao_webhook" { value = aws_lambda_function.webhook.function_name }
 
 output "nome_funcao_buscadora" { value = aws_lambda_function.buscadora.function_name }
+
+output "url_api" { value = trimsuffix(aws_apigatewayv2_stage.padrao.invoke_url, "/") }
