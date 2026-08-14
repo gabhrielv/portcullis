@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
+from functools import cache
 from pathlib import Path
 
 from portcullis.analisador.pacote import (
@@ -99,3 +100,39 @@ def principal() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(principal())
+
+
+@cache
+def _cliente_s3():
+    import boto3
+
+    return boto3.client("s3")
+
+
+def lambda_handler(evento: dict, _contexto) -> dict:
+    """Entrada da Lambda. O invólucro de I/O fica AQUI, nunca em `analisar()`.
+
+    Manter `analisar()` puro é o que deixa o corpus do marco 2 montar um pacote
+    na mão e rodar offline, sem AWS e sem GitHub.
+
+    Tudo em /tmp porque o filesystem da imagem é só-leitura em produção — e
+    /tmp tem 512 MB fixos, que é de onde vem o teto de extração do pacote.
+    """
+    bucket = evento["bucket"]
+    prefixo = evento["prefixo"]
+    s3 = _cliente_s3()
+
+    with tempfile.TemporaryDirectory(dir="/tmp") as temporario:
+        raiz = Path(temporario)
+        entrada, saida = raiz / "entrada", raiz / "saida"
+        entrada.mkdir()
+        saida.mkdir()
+
+        for nome in (NOME_CODIGO, NOME_CONTEXTO):
+            s3.download_file(Bucket=bucket, Key=f"{prefixo}/{nome}", Filename=str(entrada / nome))
+
+        resultado = analisar(entrada, saida)
+        destino = prefixo.replace("entrada/", "saida/", 1)
+        s3.upload_file(str(resultado), bucket, f"{destino}/{NOME_ACHADOS}")
+
+    return {"prefixo": destino}

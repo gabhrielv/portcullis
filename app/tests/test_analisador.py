@@ -168,3 +168,86 @@ def test_semgrepignore_do_pacote_e_sobrescrito(tmp_path, monkeypatch):
     analisador.analisar(entrada, saida)
 
     assert visto["conteudo"] == ""
+
+
+class S3Falso:
+    def __init__(self, arquivos: dict[str, bytes] | None = None):
+        self.arquivos = arquivos or {}
+        self.enviados: dict[str, bytes] = {}
+
+    def download_file(self, Bucket, Key, Filename):
+        if Key not in self.arquivos:
+            raise KeyError(Key)
+        Path(Filename).write_bytes(self.arquivos[Key])
+
+    def upload_file(self, Filename, Bucket, Key):
+        self.enviados[Key] = Path(Filename).read_bytes()
+
+
+def montar_s3(tmp_path: Path) -> S3Falso:
+    entrada = montar_pacote(tmp_path)
+    prefixo = "entrada/gabhrielv/hoppr/a1b2c3"
+    return S3Falso(
+        {
+            f"{prefixo}/codigo.tar.gz": (entrada / "codigo.tar.gz").read_bytes(),
+            f"{prefixo}/contexto.json": (entrada / "contexto.json").read_bytes(),
+        }
+    )
+
+
+def test_handler_escreve_o_resultado_no_prefixo_de_saida(tmp_path, monkeypatch):
+    s3 = montar_s3(tmp_path)
+    monkeypatch.setattr(analisador, "_cliente_s3", lambda: s3)
+    monkeypatch.setattr(
+        analisador, "rodar", lambda raiz, **kw: SaidaSemgrep(achados=(), erros=())
+    )
+
+    analisador.lambda_handler(
+        {"bucket": "b", "prefixo": "entrada/gabhrielv/hoppr/a1b2c3"}, None
+    )
+
+    assert "saida/gabhrielv/hoppr/a1b2c3/achados.json" in s3.enviados
+
+
+def test_handler_devolve_achados_do_pacote(tmp_path, monkeypatch):
+    s3 = montar_s3(tmp_path)
+    monkeypatch.setattr(analisador, "_cliente_s3", lambda: s3)
+    monkeypatch.setattr(
+        analisador,
+        "rodar",
+        lambda raiz, **kw: SaidaSemgrep(
+            achados=(Achado("r1", Severidade.ERRO, "app.py", 1, 1, "achei"),), erros=()
+        ),
+    )
+
+    analisador.lambda_handler(
+        {"bucket": "b", "prefixo": "entrada/gabhrielv/hoppr/a1b2c3"}, None
+    )
+
+    dados = json.loads(s3.enviados["saida/gabhrielv/hoppr/a1b2c3/achados.json"])
+    assert dados["ok"] is True
+    assert len(dados["achados"]) == 1
+
+
+def test_handler_usa_tmp_que_e_o_unico_lugar_gravavel_da_lambda(tmp_path, monkeypatch):
+    # O filesystem da imagem e so-leitura em producao. Escrever fora de /tmp
+    # falha, e o erro nao diz que o problema foi esse.
+    s3 = montar_s3(tmp_path)
+    monkeypatch.setattr(analisador, "_cliente_s3", lambda: s3)
+    monkeypatch.setattr(
+        analisador, "rodar", lambda raiz, **kw: SaidaSemgrep(achados=(), erros=())
+    )
+    usados: list[str] = []
+    original = analisador.tempfile.TemporaryDirectory
+
+    def espiao(*a, **k):
+        contexto = original(*a, **k)
+        usados.append(contexto.name)
+        return contexto
+
+    monkeypatch.setattr(analisador.tempfile, "TemporaryDirectory", espiao)
+    analisador.lambda_handler(
+        {"bucket": "b", "prefixo": "entrada/gabhrielv/hoppr/a1b2c3"}, None
+    )
+
+    assert all(caminho.startswith("/tmp") for caminho in usados), usados

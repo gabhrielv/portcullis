@@ -8,8 +8,8 @@ REGRAS := $(DIR_REGRAS)/default.yaml $(DIR_REGRAS)/security-audit.yaml
 # que o outro não acha. Rodar os dois custa o mesmo tempo.
 PORTCULLIS_REGRAS := $(CURDIR)/$(DIR_REGRAS)/default.yaml,$(CURDIR)/$(DIR_REGRAS)/security-audit.yaml
 
-.PHONY: instalar teste teste-integracao lint regras imagem pacote-lambda \
-        validar-infra infra url-webhook destruir
+.PHONY: instalar teste teste-integracao lint regras imagem imagem-push \
+        pacote-lambda validar-infra infra url-webhook destruir
 
 .venv:
 	python3 -m venv .venv
@@ -78,3 +78,11 @@ url-webhook:
 
 destruir:
 	cd infra && $(TF) destroy
+
+# A imagem precisa estar no ECR antes de a Lambda de container ser criada.
+imagem-push: imagem
+	$(eval REPO := $(shell cd infra && $(TF) output -raw url_repositorio_analisador))
+	aws ecr get-login-password --region us-east-1 \
+	  | docker login --username AWS --password-stdin $(REPO)
+	docker tag portcullis-analisador:local $(REPO):local
+	docker push $(REPO):local

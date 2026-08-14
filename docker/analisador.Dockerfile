@@ -1,13 +1,16 @@
-FROM python:3.12-slim
+# Imagem base da AWS: ela já traz o cliente da Runtime API, que é o que
+# transforma um container em Lambda. Construir sobre python:3.12-slim exigiria
+# instalar e configurar o `awslambdaric` na mão, sem ganho nenhum.
+FROM public.ecr.aws/lambda/python:3.12
 
-# git NÃO é instalado de propósito: o container não clona nada (D14).
+# git NÃO é instalado de propósito: o analisador não clona nada.
 RUN pip install --no-cache-dir semgrep==1.172.0
 
 WORKDIR /opt/portcullis
 COPY app/pyproject.toml ./
 COPY app/src ./src
-# Perfil `analisador`: só boto3. Sem requests, sem PyJWT — o container não
-# fala com o GitHub.
+# Perfil `analisador`: só boto3. Sem requests, sem PyJWT — ele lê código de
+# estranho e não tem como falar com o GitHub nem por acidente.
 RUN pip install --no-cache-dir ".[analisador]"
 
 # Regras vindas de build/regras (`make regras`), não baixadas aqui: a imagem
@@ -15,14 +18,12 @@ RUN pip install --no-cache-dir ".[analisador]"
 COPY build/regras /opt/portcullis/regras
 ENV PORTCULLIS_REGRAS=/opt/portcullis/regras/default.yaml,/opt/portcullis/regras/security-audit.yaml
 
-# O filesystem da imagem é só-leitura em produção (T8); tudo que o processo
-# escreve vai para /tmp, inclusive o que o semgrep queira cachear.
+# Na Lambda o filesystem é só-leitura fora de /tmp. Sem estas duas, o semgrep
+# tenta escrever configuração no HOME e morre com erro que não diz isso.
 ENV HOME=/tmp
 ENV SEMGREP_SETTINGS_FILE=/tmp/semgrep_settings.yml
 
-# Roda como não-root: ele lê código de estranho.
-RUN useradd --create-home --uid 10001 analista
-USER analista
-
-ENTRYPOINT ["python", "-m", "portcullis.analisador.main"]
-CMD ["/entrada", "/saida"]
+# Sem `USER`: a imagem base da AWS não define um, e o isolamento que o usuário
+# não-root dava aqui a Lambda já dá de forma mais forte — cada invocação roda
+# numa microVM descartável, com o filesystem só-leitura fora de /tmp.
+CMD ["portcullis.analisador.main.lambda_handler"]

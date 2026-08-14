@@ -30,3 +30,15 @@ variable "concorrencia_webhook" {
   type    = number
   default = -1
 }
+
+# Fica `false` até a imagem existir no ECR: a Lambda de container não pode ser
+# criada apontando para uma imagem que não foi empurrada ainda.
+variable "analisador_no_ar" {
+  type    = bool
+  default = true
+}
+
+variable "tag_imagem" {
+  type    = string
+  default = "local"
+}

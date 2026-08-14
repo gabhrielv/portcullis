@@ -31,7 +31,7 @@ variable "nome_tabela_auditoria" {
 # a mensagem roda o ciclo de retentativas até cair na fila de mortas.
 variable "gatilho_buscadora_ligado" {
   type    = bool
-  default = false
+  default = true
 }
 
 variable "concorrencia_buscadora" {
