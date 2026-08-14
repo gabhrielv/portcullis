@@ -3,10 +3,10 @@ from pathlib import Path
 
 from test_pacote import montar_tar
 
-from aduana.analisador import main as analisador
-from aduana.analisador.pacote import NOME_CONTEXTO, escrever_contexto
-from aduana.analisador.semgrep import SaidaSemgrep, SemgrepFalhou
-from aduana.modelos import Achado, Contexto, Evento, FaixaLinhas, Severidade
+from portcullis.analisador import main as analisador
+from portcullis.analisador.pacote import NOME_CONTEXTO, escrever_contexto
+from portcullis.analisador.semgrep import SaidaSemgrep, SemgrepFalhou
+from portcullis.modelos import Achado, Contexto, Evento, FaixaLinhas, Severidade
 
 
 def montar_pacote(tmp_path: Path) -> Path:

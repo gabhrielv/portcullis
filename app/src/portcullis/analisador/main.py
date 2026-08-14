@@ -4,7 +4,7 @@ Não conhece GitHub, não conhece a regra de decisão, não emite veredito. É a
 D14 virando código, e o test_arquitetura.py garante que continue assim.
 
 Uso:
-    python -m aduana.analisador.main /entrada /saida
+    python -m portcullis.analisador.main /entrada /saida
 """
 
 from __future__ import annotations
@@ -14,15 +14,15 @@ import sys
 import tempfile
 from pathlib import Path
 
-from aduana.analisador.pacote import (
+from portcullis.analisador.pacote import (
     NOME_ACHADOS,
     NOME_CODIGO,
     NOME_CONTEXTO,
     extrair,
     ler_contexto,
 )
-from aduana.analisador.semgrep import rodar
-from aduana.modelos import Achado
+from portcullis.analisador.semgrep import rodar
+from portcullis.modelos import Achado
 
 
 def _relativizar(caminho: str, raiz: Path) -> str:

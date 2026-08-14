@@ -12,7 +12,7 @@ provider "aws" {
   region = var.regiao
   default_tags {
     tags = {
-      Projeto   = "aduana"
+      Projeto   = "portcullis"
       Terraform = "true"
     }
   }

@@ -1,5 +1,5 @@
-from aduana.decisao.regra import VERSAO_REGRA, decidir, nao_conclui
-from aduana.modelos import (
+from portcullis.decisao.regra import VERSAO_REGRA, decidir, nao_conclui
+from portcullis.modelos import (
     Achado,
     Contexto,
     EstadoVeredito,

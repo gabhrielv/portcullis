@@ -10,7 +10,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from aduana.modelos import Achado, Severidade
+from portcullis.modelos import Achado, Severidade
 
 # O Semgrep usa o código de saída para comunicar RESULTADO, não só erro:
 # 0 = nada encontrado, 1 = encontrou achados, >=2 = falhou de verdade.
@@ -87,10 +87,10 @@ def _executavel() -> str:
 
 
 def _caminhos_de_regras(regras: str | Path | None) -> list[str]:
-    bruto = str(regras or os.environ.get("ADUANA_REGRAS", ""))
+    bruto = str(regras or os.environ.get("PORTCULLIS_REGRAS", ""))
     caminhos = [parte.strip() for parte in bruto.split(",") if parte.strip()]
     if not caminhos:
-        raise SemgrepFalhou("conjunto de regras não definido (ADUANA_REGRAS)")
+        raise SemgrepFalhou("conjunto de regras não definido (PORTCULLIS_REGRAS)")
 
     faltando = [c for c in caminhos if not Path(c).exists()]
     if faltando:

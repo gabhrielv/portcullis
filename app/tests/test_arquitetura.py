@@ -6,8 +6,8 @@ acrescentar um desses imports, este teste quebra.
 
 from pathlib import Path
 
-PROIBIDOS = ("aduana.github", "aduana.decisao", "aduana.persistencia")
-PASTA_ANALISADOR = Path(__file__).resolve().parents[1] / "src" / "aduana" / "analisador"
+PROIBIDOS = ("portcullis.github", "portcullis.decisao", "portcullis.persistencia")
+PASTA_ANALISADOR = Path(__file__).resolve().parents[1] / "src" / "portcullis" / "analisador"
 
 
 def test_analisador_nao_importa_github_nem_decisao():

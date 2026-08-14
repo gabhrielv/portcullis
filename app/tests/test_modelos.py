@@ -2,7 +2,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from aduana.modelos import (
+from portcullis.modelos import (
     Achado,
     Contexto,
     Evento,
