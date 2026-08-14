@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 
 import pytest
 
@@ -184,3 +185,52 @@ def test_push_de_delecao_de_branch_nao_enfileira(fila):
 def test_push_de_tag_nao_enfileira(fila):
     webhook.lambda_handler(evento(corpo_de_push(ref="refs/tags/v1.0"), "push"), None)
     assert fila.enviadas == []
+
+
+def test_enfileiramento_e_registrado_com_repo_e_sha(fila, caplog):
+    caplog.set_level(logging.INFO)
+    webhook.lambda_handler(evento(corpo_de_pr(), "pull_request"), None)
+
+    registro = caplog.text
+    assert "gabhrielv/hoppr" in registro
+    assert "aaa111" in registro
+
+
+def test_assinatura_invalida_e_registrada_como_aviso(fila, caplog):
+    caplog.set_level(logging.INFO)
+    webhook.lambda_handler(evento(corpo_de_pr(), "pull_request", segredo="outro"), None)
+
+    assert any(r.levelno >= logging.WARNING for r in caplog.records)
+    assert "assinatura" in caplog.text.lower()
+
+
+def test_evento_descartado_registra_o_motivo(fila, caplog):
+    caplog.set_level(logging.INFO)
+    webhook.lambda_handler(evento(corpo_de_push(ref="refs/heads/outra"), "push"), None)
+
+    assert caplog.records, "descarte silencioso: nada foi registrado"
+
+
+def test_log_nunca_carrega_texto_escrito_por_quem_abriu_o_pr(fila, caplog):
+    # Titulo e descricao sao texto livre de terceiro — vetor de injecao de
+    # prompt no marco 2, e de forja de linha de log agora. Nao entram.
+    caplog.set_level(logging.INFO)
+    corpo = corpo_de_pr()
+    corpo["pull_request"]["title"] = "TITULO-PLANTADO-XYZ"
+    corpo["pull_request"]["body"] = "CORPO-PLANTADO-XYZ"
+
+    webhook.lambda_handler(evento(corpo, "pull_request"), None)
+
+    assert "PLANTADO" not in caplog.text
+
+
+def test_nome_de_evento_hostil_nao_forja_linha_de_log(fila, caplog):
+    # O cabecalho vem de quem chamou e ainda nao foi autenticado: uma quebra
+    # de linha ali escreveria uma linha de log inteira, inventada.
+    caplog.set_level(logging.INFO)
+    bruto = evento(corpo_de_pr(), "pull_request", segredo="outro")
+    bruto["headers"]["x-github-event"] = "push\nINFO enfileirado repo=falso/falso"
+
+    webhook.lambda_handler(bruto, None)
+
+    assert "falso/falso" not in caplog.text

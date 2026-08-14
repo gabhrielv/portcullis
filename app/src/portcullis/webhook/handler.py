@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
+import re
 from functools import cache
 
 import boto3
@@ -15,9 +17,24 @@ import boto3
 from portcullis.config import obrigatoria, parametro_ssm
 from portcullis.webhook.assinatura import conferir_assinatura
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 EVENTOS_ACEITOS = frozenset({"pull_request", "push"})
 # As outras ações (closed, labeled, assigned…) não mexem em código.
 ACOES_DE_PR = frozenset({"opened", "synchronize", "reopened"})
+
+_FORA_DE_NOME_DE_EVENTO = re.compile(r"[^a-z_]")
+
+
+def _sanitizar(valor: str | None) -> str:
+    """O nome do evento vem num cabeçalho, e cabeçalho não entra no HMAC.
+
+    Sem isto, uma quebra de linha no valor escreveria uma linha de log inteira,
+    inventada por quem chamou — e o log é onde se vai procurar a verdade quando
+    algo der errado.
+    """
+    return _FORA_DE_NOME_DE_EVENTO.sub("", (valor or "").lower())[:32]
 
 
 @cache
@@ -80,24 +97,39 @@ def lambda_handler(evento_lambda: dict, _contexto) -> dict:
     corpo_bruto = _corpo_bruto(evento_lambda)
     cabecalhos = {k.lower(): v for k, v in (evento_lambda.get("headers") or {}).items()}
 
+    nome_evento = _sanitizar(cabecalhos.get("x-github-event"))
+
     segredo = parametro_ssm(obrigatoria("PORTCULLIS_PARAM_SEGREDO_WEBHOOK"))
     if not conferir_assinatura(
         corpo_bruto, cabecalhos.get("x-hub-signature-256"), segredo
     ):
+        logger.warning("assinatura invalida, evento=%s", nome_evento)
         return _resposta(401, "assinatura inválida")
 
-    nome_evento = cabecalhos.get("x-github-event", "")
     if nome_evento == "ping":
+        logger.info("ping recebido")
         return _resposta(200, "pong")
     if nome_evento not in EVENTOS_ACEITOS:
+        logger.info("descartado: evento=%s fora da lista", nome_evento)
         return _resposta(200, f"evento {nome_evento} ignorado")
 
     trabalho = _extrair_trabalho(nome_evento, json.loads(corpo_bruto))
     if trabalho is None:
+        logger.info("descartado: evento=%s nao gera analise", nome_evento)
         return _resposta(200, "nada a fazer")
 
     _cliente_sqs().send_message(
         QueueUrl=obrigatoria("PORTCULLIS_FILA_URL"),
         MessageBody=json.dumps(trabalho),
+    )
+    # Só campos estruturais. Título e descrição do PR são texto livre de quem
+    # abriu — não entram no log nem em lugar nenhum.
+    logger.info(
+        "enfileirado %s/%s evento=%s sha=%s pr=%s",
+        trabalho["owner"],
+        trabalho["repo"],
+        trabalho["evento"],
+        trabalho["head_sha"],
+        trabalho["numero_pr"],
     )
     return _resposta(200, "enfileirado")
