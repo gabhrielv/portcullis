@@ -233,3 +233,34 @@ def test_falha_ao_disparar_a_analise_tambem_libera_o_lock(nuvem, monkeypatch):
         buscador.lambda_handler(sqs(TRABALHO_PR), None)
 
     assert ("gabhrielv#hoppr", "lock#aaa111") not in dynamo.itens
+
+
+def test_checagem_abre_como_em_progresso_ao_montar_o_pacote(nuvem, monkeypatch):
+    # A analise leva ~4 min. Sem isto o PR fica esse tempo todo sem sinal
+    # nenhum, e o desenvolvedor assume que quebrou alguma coisa.
+    abertas: list[tuple] = []
+    monkeypatch.setattr(
+        buscador,
+        "criar_em_progresso",
+        lambda token, owner, repo, sha: abertas.append((owner, repo, sha)),
+    )
+
+    buscador.lambda_handler(sqs(TRABALHO_PR), None)
+
+    assert abertas == [("gabhrielv", "hoppr", "aaa111")]
+
+
+def test_falha_ao_abrir_a_checagem_nao_impede_a_analise(nuvem, monkeypatch):
+    # A checagem e sinal para humano; a analise e o trabalho. Perder o sinal
+    # nao pode custar a analise — a publicadora cria a checagem no fim se ela
+    # nao existir.
+    _, _, lamb = nuvem
+
+    def explodir(*a, **k):
+        raise RuntimeError("api do github fora do ar")
+
+    monkeypatch.setattr(buscador, "criar_em_progresso", explodir)
+
+    buscador.lambda_handler(sqs(TRABALHO_PR), None)
+
+    assert len(lamb.invocacoes) == 1

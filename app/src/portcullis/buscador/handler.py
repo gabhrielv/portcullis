@@ -23,6 +23,7 @@ from portcullis.buscador.github_api import (
 )
 from portcullis.config import obrigatoria, parametro_ssm
 from portcullis.github.auth import token_de_instalacao
+from portcullis.github.checks import criar_em_progresso
 from portcullis.modelos import Contexto, Evento
 
 logger = logging.getLogger(__name__)
@@ -122,6 +123,15 @@ def _montar_pacote(trabalho: dict, bucket: str, prefixo: str) -> None:
         trabalho["owner"],
         trabalho["repo"],
     )
+
+    # Sinal imediato no PR: a análise leva ~4 min, e sem isto o
+    # desenvolvedor passa esse tempo sem saber se algo está acontecendo.
+    # Falhar aqui não pode custar a análise — a checagem é sinal para humano,
+    # e a publicadora cria uma no fim se esta não existir.
+    try:
+        criar_em_progresso(token, trabalho["owner"], trabalho["repo"], trabalho["head_sha"])
+    except Exception:
+        logger.exception("nao consegui abrir a checagem em progresso")
 
     tarball_para_s3(
         token,
