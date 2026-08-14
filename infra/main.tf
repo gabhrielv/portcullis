@@ -46,16 +46,17 @@ module "dados" {
 }
 
 module "funcoes" {
-  source              = "./modules/funcoes"
-  prefixo             = var.prefixo
-  caminho_zip         = "${path.module}/../build/lambda.zip"
-  url_fila            = module.fila.url_fila
-  arn_fila            = module.fila.arn_fila
-  arn_bucket_pacotes  = module.pacotes.arn_bucket_pacotes
-  nome_bucket_pacotes = module.pacotes.nome_bucket_pacotes
-  arn_tabela          = module.dados.arn_tabela
-  nome_tabela         = module.dados.nome_tabela
-  github_app_id       = var.github_app_id
+  source                = "./modules/funcoes"
+  prefixo               = var.prefixo
+  caminho_zip           = "${path.module}/../build/lambda.zip"
+  url_fila              = module.fila.url_fila
+  arn_fila              = module.fila.arn_fila
+  arn_bucket_pacotes    = module.pacotes.arn_bucket_pacotes
+  nome_bucket_pacotes   = module.pacotes.nome_bucket_pacotes
+  arn_tabela            = module.dados.arn_tabela
+  nome_tabela           = module.dados.nome_tabela
+  nome_tabela_auditoria = module.dados.nome_tabela
+  github_app_id         = var.github_app_id
 
   concorrencia_webhook = var.concorrencia_webhook
 }

@@ -20,3 +20,21 @@ variable "concorrencia_webhook" {
   type    = number
   default = 5
 }
+
+variable "nome_tabela_auditoria" {
+  type    = string
+  default = ""
+}
+
+# A Fatia 2 liga, quando a Lambda do analisador existir. Com o gatilho ligado
+# antes disso, a buscadora monta o pacote, falha ao invocar o que não existe, e
+# a mensagem roda o ciclo de retentativas até cair na fila de mortas.
+variable "gatilho_buscadora_ligado" {
+  type    = bool
+  default = false
+}
+
+variable "concorrencia_buscadora" {
+  type    = number
+  default = -1
+}

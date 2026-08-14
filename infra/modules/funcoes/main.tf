@@ -134,3 +134,111 @@ resource "aws_lambda_permission" "api" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.principal.execution_arn}/*/*"
 }
+
+# ---------------------------------------------------------------------------
+# Buscadora: consome a fila, monta o pacote no S3, dispara a análise.
+# Fica FORA da VPC porque fala com o github.com. Ela TEM o token do GitHub e
+# NÃO lê o código que baixa — o analisador lê o código e não tem token. Separar
+# as duas coisas é a defesa; juntá-las numa função só a desfaz.
+# ---------------------------------------------------------------------------
+
+locals {
+  arn_analisador = "arn:aws:lambda:${data.aws_region.atual.region}:${data.aws_caller_identity.atual.account_id}:function:${var.prefixo}-analisador"
+}
+
+resource "aws_iam_role" "buscadora" {
+  name = "${var.prefixo}-buscadora"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "buscadora" {
+  name = "${var.prefixo}-buscadora"
+  role = aws_iam_role.buscadora.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueAttributes"]
+        Resource = var.arn_fila
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter"]
+        Resource = local.arn_parametros
+      },
+      {
+        # Escreve só no prefixo de entrada. O resultado da análise mora em
+        # `saida/`, e quem escreve lá é o analisador.
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
+        Resource = "${var.arn_bucket_pacotes}/entrada/*"
+      },
+      {
+        # Só o lock da deduplicação. O registro de auditoria é da publicadora.
+        Effect   = "Allow"
+        Action   = ["dynamodb:PutItem", "dynamodb:DeleteItem"]
+        Resource = var.arn_tabela
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["lambda:InvokeFunction"]
+        Resource = local.arn_analisador
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "${aws_cloudwatch_log_group.buscadora.arn}:*"
+      },
+    ]
+  })
+}
+
+resource "aws_cloudwatch_log_group" "buscadora" {
+  name              = "/aws/lambda/${var.prefixo}-buscadora"
+  retention_in_days = 1
+}
+
+resource "aws_lambda_function" "buscadora" {
+  function_name    = "${var.prefixo}-buscadora"
+  role             = aws_iam_role.buscadora.arn
+  handler          = "portcullis.buscador.handler.lambda_handler"
+  runtime          = "python3.12"
+  filename         = var.caminho_zip
+  source_code_hash = filebase64sha256(var.caminho_zip)
+
+  # Precisa ser MENOR que o visibility timeout da fila (300 s), senão o SQS
+  # reentrega a mensagem enquanto esta execução ainda está rodando.
+  timeout     = 120
+  memory_size = 512
+
+  reserved_concurrent_executions = var.concorrencia_buscadora
+
+  environment {
+    variables = {
+      PORTCULLIS_BUCKET_PACOTES    = var.nome_bucket_pacotes
+      PORTCULLIS_TABELA            = var.nome_tabela_auditoria
+      PORTCULLIS_FUNCAO_ANALISADOR = "${var.prefixo}-analisador"
+      PORTCULLIS_GITHUB_APP_ID     = var.github_app_id
+      PORTCULLIS_PARAM_CHAVE_APP   = "/portcullis/github/chave-privada"
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.buscadora]
+}
+
+resource "aws_lambda_event_source_mapping" "fila_para_buscadora" {
+  event_source_arn = var.arn_fila
+  function_name    = aws_lambda_function.buscadora.arn
+  enabled          = var.gatilho_buscadora_ligado
+  # Uma mensagem por invocação: uma falha no meio de um lote reentregaria o
+  # lote inteiro, e as mensagens que já deram certo seriam refeitas.
+  batch_size = 1
+}
