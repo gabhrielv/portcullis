@@ -217,3 +217,19 @@ def test_falha_no_meio_libera_o_lock_para_a_reentrega(nuvem, monkeypatch):
 
     assert ("gabhrielv#hoppr", "lock#aaa111") not in dynamo.itens
     assert lamb.invocacoes == []
+
+
+def test_falha_ao_disparar_a_analise_tambem_libera_o_lock(nuvem, monkeypatch):
+    # O pacote existir no S3 nao adianta se a analise nunca foi disparada.
+    # A reentrega precisa poder tentar de novo.
+    _, dynamo, lamb = nuvem
+
+    def explodir(**k):
+        raise RuntimeError("funcao do analisador nao existe")
+
+    monkeypatch.setattr(lamb, "invoke", explodir)
+
+    with pytest.raises(RuntimeError):
+        buscador.lambda_handler(sqs(TRABALHO_PR), None)
+
+    assert ("gabhrielv#hoppr", "lock#aaa111") not in dynamo.itens

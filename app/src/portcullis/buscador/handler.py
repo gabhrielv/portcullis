@@ -151,17 +151,20 @@ def _processar(trabalho: dict) -> None:
     bucket = obrigatoria("PORTCULLIS_BUCKET_PACOTES")
     try:
         _montar_pacote(trabalho, bucket, prefixo)
+        # Assíncrono: esperar os ~2 minutos da análise pagaria duas Lambdas ao
+        # mesmo tempo, e a resposta não seria usada por ninguém.
+        # Dentro do try junto com o pacote: o pacote existir no S3 não adianta
+        # se a análise nunca foi disparada, e aí a reentrega precisa poder
+        # tentar de novo em vez de bater no lock e devolver sucesso.
+        _cliente_lambda().invoke(
+            FunctionName=obrigatoria("PORTCULLIS_FUNCAO_ANALISADOR"),
+            InvocationType="Event",
+            Payload=json.dumps({"bucket": bucket, "prefixo": prefixo}),
+        )
     except Exception:
         _liberar(trabalho)
         raise
 
-    # Assíncrono: esperar os ~2 minutos da análise pagaria duas Lambdas ao
-    # mesmo tempo, e a resposta não seria usada por ninguém.
-    _cliente_lambda().invoke(
-        FunctionName=obrigatoria("PORTCULLIS_FUNCAO_ANALISADOR"),
-        InvocationType="Event",
-        Payload=json.dumps({"bucket": bucket, "prefixo": prefixo}),
-    )
     logger.info(
         "pacote montado e analise disparada: %s/%s evento=%s sha=%s",
         trabalho["owner"],
