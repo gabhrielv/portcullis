@@ -206,6 +206,20 @@ Sobrevivem ao destroy, de propósito: o bucket do state do Terraform, os dois
 segredos no SSM e o orçamento de alerta. São guarda-corpos que precisam existir
 justamente quando o stack não existe.
 
+Com a infraestrutura no chão, todo PR novo no repositório alvo fica esperando
+para sempre uma checagem que ninguém vai reportar. Para trabalhar nesses
+períodos:
+
+```bash
+scripts/protecao_branch.sh desligar   # antes
+scripts/protecao_branch.sh ligar      # depois de make subir
+```
+
+Esse script usa a credencial da pessoa, **nunca a do GitHub App**. O App não
+tem permissão de `administration` de propósito: se o portão pudesse mexer na
+proteção de branch, comprometer a chave privada dele bastaria para liberar
+qualquer merge.
+
 ---
 
 ## Estrutura
