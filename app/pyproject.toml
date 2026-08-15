@@ -25,6 +25,9 @@ dev = [
     "botocore[crt]",
     # Mesma versão do docker/analisador.Dockerfile.
     "semgrep==1.172.0",
+    # O gabarito do corpus. Vem de carona no semgrep hoje, e é por isso que
+    # está declarado: dependência transitiva some sem aviso.
+    "PyYAML>=6.0",
 ]
 
 [build-system]

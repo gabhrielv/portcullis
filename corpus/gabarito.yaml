@@ -1,0 +1,40 @@
+# Fonte única do corpus. Cada entrada gera contexto.json e achados.json.
+#
+# `alvo` é o achado que está sendo julgado. Ele nomeia a REGRA além do
+# arquivo e da linha: uma linha costuma acumular achados sobrepostos de regras
+# diferentes, e sem a regra o corpus mediria um achado diferente do pretendido
+# conforme a ordem em que o semgrep os cospe.
+#
+# `linhas_tocadas` é o que o PR fictício alterou; é o que separa novo de
+# pré-existente, exatamente como em produção.
+#
+# Os caminhos são relativos à RAIZ DO REPOSITÓRIO, não à pasta do caso: a
+# pasta `codigo/repo/` vira o topo do tarball e some na extração, do mesmo
+# jeito que o prefixo `owner-repo-sha/` que o GitHub coloca.
+
+- id: sqli-direto
+  padrao: concatenacao-com-entrada-http
+  dificuldade: facil
+  gabarito: VULNERAVEL
+  alvo:
+    arquivo: app/usuarios.py
+    linha: 12
+    regra: python.flask.security.injection.tainted-sql-string.tainted-sql-string
+  linhas_tocadas:
+    app/usuarios.py: [[8, 13]]
+  motivo: o id vem de request.args e entra na query por concatenação
+
+- id: sqli-constante
+  padrao: concatenacao-com-constante
+  dificuldade: media
+  gabarito: FALSO_POSITIVO
+  alvo:
+    arquivo: app/relatorio.py
+    linha: 12
+    regra: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+  linhas_tocadas:
+    app/relatorio.py: [[6, 12]]
+  motivo: >
+    o valor vem de um Enum interno, sem qualquer entrada externa. A regra que
+    disparou não faz taint analysis — ela marca toda execução de SQL cru, e é
+    por isso que a taint das outras regras não a desmente

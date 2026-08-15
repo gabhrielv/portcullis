@@ -10,7 +10,7 @@ REGRAS := $(DIR_REGRAS)/default.yaml $(DIR_REGRAS)/security-audit.yaml
 PORTCULLIS_REGRAS := $(CURDIR)/$(DIR_REGRAS)/default.yaml,$(CURDIR)/$(DIR_REGRAS)/security-audit.yaml
 
 .PHONY: instalar teste teste-integracao lint regras imagem imagem-push subir \
-        pacote-lambda validar-infra infra url-webhook destruir
+        pacote-lambda validar-infra infra url-webhook destruir corpus-congelar
 
 .venv:
 	python3 -m venv .venv
@@ -34,13 +34,21 @@ $(DIR_REGRAS)/%.yaml:
 
 regras: $(REGRAS)
 
+# Regenera contexto.json e achados.json de cada caso do corpus. Roda o semgrep
+# de verdade, por isso fica fora do `make teste`. CASO="id id" limita o alcance.
+corpus-congelar: $(MARCA) $(REGRAS)
+	PORTCULLIS_REGRAS="$(PORTCULLIS_REGRAS)" $(PY) corpus/congelar.py $(CASO)
+
 teste-integracao: $(MARCA) $(REGRAS)
 	cd app && PORTCULLIS_REGRAS="$(PORTCULLIS_REGRAS)" ../$(PY) -m pytest -v -m integracao
 
 # `--config` explícito: scripts/ fica fora do alcance do app/pyproject.toml, e
 # sem isto o ruff usaria o padrão lá e outra config aqui, discordando de si.
+# `corpus/*.py` entra, mas `corpus/casos/` não: os casos têm código inseguro de
+# propósito, e é o semgrep que julga eles, não o ruff.
 lint: $(MARCA)
-	cd app && ../$(PY) -m ruff check --config pyproject.toml src tests ../scripts
+	cd app && ../$(PY) -m ruff check --config pyproject.toml \
+	  src tests ../scripts ../corpus/*.py
 
 imagem: $(REGRAS)
 	docker build -f docker/analisador.Dockerfile -t portcullis-analisador:local .
