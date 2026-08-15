@@ -1,10 +1,10 @@
 from flask import Flask, request
 
-from app.db import por_id
+from app.servico import carregar_conta
 
 app = Flask(__name__)
 
 
 @app.route("/conta")
 def conta():
-    return {"conta": por_id(request.args["id"])}
+    return carregar_conta(request.args["id"])
