@@ -18,7 +18,15 @@ from portcullis.config import obrigatoria, parametro_ssm
 from portcullis.decisao.regra import decidir, nao_conclui
 from portcullis.github.auth import token_de_instalacao
 from portcullis.github.checks import publicar
-from portcullis.modelos import Achado, Contexto, Evento, FaixaLinhas, Severidade
+from portcullis.modelos import (
+    Achado,
+    Contexto,
+    Evento,
+    Evidencia,
+    FaixaLinhas,
+    Resposta,
+    Severidade,
+)
 from portcullis.persistencia.dynamo import gravar_auditoria
 
 logger = logging.getLogger(__name__)
@@ -26,6 +34,7 @@ logger.setLevel(logging.INFO)
 
 NOME_ACHADOS = "achados.json"
 NOME_CONTEXTO = "contexto.json"
+NOME_EVIDENCIAS = "evidencias.json"
 
 
 @cache
@@ -50,6 +59,31 @@ def _achado_de(dados: dict) -> Achado:
     )
 
 
+def _resposta_de(bruto) -> Resposta:
+    """Valor fora do vocabulário vira `nao_sei`, que bloqueia.
+
+    Levantar aqui derrubaria a publicadora e o Check Run ficaria `in_progress`
+    para sempre — o portão mudo é pior desfecho que o portão fechado.
+    """
+    try:
+        return Resposta(str(bruto).strip().lower())
+    except ValueError:
+        return Resposta.NAO_SEI
+
+
+def _evidencia_de(dados: dict) -> Evidencia:
+    return Evidencia(
+        chave=dados["chave"],
+        entrada_controlavel=_resposta_de(dados.get("entrada_controlavel")),
+        sanitizacao_encontrada=_resposta_de(dados.get("sanitizacao_encontrada")),
+        prova=dados.get("prova"),
+        prova_valida=bool(dados.get("prova_valida")),
+        raciocinio=dados.get("raciocinio", ""),
+        passos=int(dados.get("passos", 0)),
+        tokens=int(dados.get("tokens", 0)),
+    )
+
+
 def _contexto_de(dados: dict) -> Contexto:
     return Contexto(
         owner=dados["owner"],
@@ -70,12 +104,27 @@ def _processar(bucket: str, chave: str) -> None:
     prefixo_saida = chave.rsplit("/", 1)[0]
     prefixo_entrada = prefixo_saida.replace("saida/", "entrada/", 1)
 
-    resultado = _ler_json(bucket, chave)
+    # A chave que chega é a do evidencias.json; os achados vêm do lado.
+    resultado = _ler_json(bucket, f"{prefixo_saida}/{NOME_ACHADOS}")
     contexto = _contexto_de(_ler_json(bucket, f"{prefixo_entrada}/{NOME_CONTEXTO}"))
+    evidencias_brutas = _ler_json(bucket, chave)
 
     if resultado.get("ok"):
+        evidencias = {
+            dados["chave"]: _evidencia_de(dados)
+            for dados in evidencias_brutas.get("evidencias", [])
+        }
+        faltaram = evidencias_brutas.get("nao_investigados", 0)
+        motivo = evidencias_brutas.get("motivo")
+        if faltaram:
+            aviso = f"{faltaram} achado(s) ficaram sem investigação"
+            motivo = f"{motivo}; {aviso}" if motivo else aviso
         veredito = decidir(
-            [_achado_de(a) for a in resultado["achados"]], contexto
+            [_achado_de(a) for a in resultado["achados"]],
+            contexto,
+            evidencias=evidencias,
+            degradado=bool(evidencias_brutas.get("degradado")),
+            motivo=motivo,
         )
     else:
         # Falha do scanner NÃO vira success: não saber se há problema tem que
@@ -96,6 +145,7 @@ def _processar(bucket: str, chave: str) -> None:
         sha=contexto.head_sha,
         veredito=veredito,
         hash_regras=resultado.get("hash_regras", ""),
+        evidencias=evidencias_brutas.get("evidencias", []),
     )
 
     logger.info(

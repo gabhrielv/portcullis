@@ -18,6 +18,7 @@ NOME_CHECAGEM = "seguranca/portcullis"
 # Teto da API do GitHub por requisição.
 LIMITE_ANOTACOES = 50
 TEMPO_LIMITE_S = 30
+LIMITE_MOTIVO = 200
 
 CONCLUSAO = {
     EstadoVeredito.LIBERADO: "success",
@@ -43,6 +44,14 @@ def _anotacao(achado: Achado, nivel: str) -> dict:
         "title": achado.regra,
         "message": achado.mensagem,
     }
+
+
+def _uma_linha(texto: str) -> str:
+    """O motivo pode ter passado por mensagem de exceção, e mensagem de
+    exceção pode carregar nome de arquivo vindo do tarball — texto de quem
+    abriu o PR. Numa linha só e com teto, ele não forja seção no painel.
+    """
+    return " ".join(texto.split())[:LIMITE_MOTIVO]
 
 
 def _titulo(veredito: Veredito) -> str:
@@ -103,12 +112,28 @@ def _resumo(veredito: Veredito, anotacoes_mostradas: int) -> str:
             )
         )
 
+    if veredito.silenciados_por_evidencia:
+        # O `raciocinio` do modelo NÃO entra aqui: é texto livre escrito por um
+        # modelo que acabou de ler código de quem abriu o PR, e este painel é
+        # onde um humano decide. Só campo estruturado.
+        partes.append(
+            _secao(
+                f"{len(veredito.silenciados_por_evidencia)} silenciado por evidência",
+                veredito.silenciados_por_evidencia,
+                recolhida=True,
+            )
+        )
+
     novos = len(veredito.bloqueantes) + len(veredito.avisos)
     if novos > anotacoes_mostradas:
         partes.append(
             f"\n> Mostrando {anotacoes_mostradas} de {novos} anotações "
             f"(teto da API do GitHub).\n"
         )
+
+    # No NAO_CONCLUI o motivo já é o título; repetir aqui seria ruído.
+    if veredito.motivo and veredito.estado is not EstadoVeredito.NAO_CONCLUI:
+        partes.append(f"\n> {_uma_linha(veredito.motivo)}\n")
 
     partes.append(f"\n`regra v{veredito.versao_regra}`")
     return "\n".join(partes) if partes else f"Nenhum achado.\n\n`regra v{veredito.versao_regra}`"

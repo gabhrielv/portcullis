@@ -31,7 +31,12 @@ def _serializar(achado: Achado) -> dict:
 
 
 def gravar_auditoria(
-    tabela: str, repo: str, sha: str, veredito: Veredito, hash_regras: str
+    tabela: str,
+    repo: str,
+    sha: str,
+    veredito: Veredito,
+    hash_regras: str,
+    evidencias: list[dict] | None = None,
 ) -> None:
     _tabela(tabela).put_item(
         Item={
@@ -48,6 +53,12 @@ def gravar_auditoria(
             "avisos": [_serializar(a) for a in veredito.avisos],
             "preexistentes": [_serializar(a) for a in veredito.preexistentes],
             "silenciados": [_serializar(a) for a in veredito.silenciados],
+            "silenciados_por_evidencia": [
+                _serializar(a) for a in veredito.silenciados_por_evidencia
+            ],
+            # A D11 pede "evidência de cada um": é aqui que o `raciocinio` do
+            # modelo mora, e não no Check Run.
+            "evidencias": evidencias or [],
             "horario": datetime.now(UTC).isoformat(),
         }
     )

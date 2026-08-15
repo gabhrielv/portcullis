@@ -93,10 +93,37 @@ def nuvem(monkeypatch):
     return github, auditoria
 
 
-def preparar(monkeypatch, dados_achados):
+def evidencias(lista=None, degradado=False, motivo=None, nao_investigados=0):
+    return {
+        "ok": True,
+        "degradado": degradado,
+        "motivo": motivo,
+        "modelo": "modelo-x",
+        "versao_prompt": "1",
+        "nao_investigados": nao_investigados,
+        "evidencias": lista if lista is not None else [],
+    }
+
+
+def evidencia(linha, entrada="nao", sanitizacao="nao_sei", prova=None, valida=False):
+    return {
+        "chave": f"regra.x|app.py|{linha}|{linha}",
+        "entrada_controlavel": entrada,
+        "sanitizacao_encontrada": sanitizacao,
+        "prova": prova,
+        "prova_valida": valida,
+        "raciocinio": "olhei os chamadores",
+        "passos": 3,
+        "tokens": 900,
+    }
+
+
+def preparar(monkeypatch, dados_achados, dados_evidencias=None):
+    """A publicadora acorda no evidencias.json, não mais no achados.json."""
     s3 = S3Falso(
         {
             f"{PREFIXO_SAIDA}/achados.json": dados_achados,
+            f"{PREFIXO_SAIDA}/evidencias.json": dados_evidencias or evidencias(),
             f"{PREFIXO_ENTRADA}/contexto.json": CONTEXTO,
         }
     )
@@ -106,7 +133,7 @@ def preparar(monkeypatch, dados_achados):
             {
                 "s3": {
                     "bucket": {"name": BUCKET},
-                    "object": {"key": f"{PREFIXO_SAIDA}/achados.json"},
+                    "object": {"key": f"{PREFIXO_SAIDA}/evidencias.json"},
                 }
             }
         ]
@@ -185,6 +212,112 @@ def test_warning_de_seguranca_em_linha_tocada_bloqueia(nuvem, monkeypatch):
     publicador.lambda_handler(evento, None)
 
     assert github.publicados[0]["veredito"].estado.value == "bloqueado"
+
+
+def test_evidencia_positiva_libera_o_veredito(nuvem, monkeypatch):
+    """O caminho inteiro: evidencias.json no S3 vira Check Run verde."""
+    github, _ = nuvem
+    evento = preparar(
+        monkeypatch,
+        achados(lista=[achado(11)]),
+        evidencias(lista=[evidencia(11, entrada="nao")]),
+    )
+
+    publicador.lambda_handler(evento, None)
+
+    veredito = github.publicados[0]["veredito"]
+    assert veredito.estado.value == "liberado"
+    assert len(veredito.silenciados_por_evidencia) == 1
+    assert veredito.bloqueantes == ()
+
+
+def test_sem_evidencia_o_mesmo_achado_bloqueia(nuvem, monkeypatch):
+    """A prova de que a evidência é o que muda o resultado, e não outra coisa."""
+    github, _ = nuvem
+    evento = preparar(
+        monkeypatch,
+        achados(lista=[achado(11)]),
+        evidencias(degradado=True, motivo="CotaEsgotada: acabou"),
+    )
+
+    publicador.lambda_handler(evento, None)
+
+    veredito = github.publicados[0]["veredito"]
+    assert veredito.estado.value == "bloqueado"
+    assert veredito.degradado is True
+
+
+def test_achado_sem_investigacao_bloqueia_e_o_motivo_diz(nuvem, monkeypatch):
+    github, _ = nuvem
+    evento = preparar(
+        monkeypatch, achados(lista=[achado(11)]), evidencias(nao_investigados=3)
+    )
+
+    publicador.lambda_handler(evento, None)
+
+    veredito = github.publicados[0]["veredito"]
+    assert veredito.estado.value == "bloqueado"
+    assert "sem investigação" in veredito.motivo
+
+
+def test_evidencia_de_chave_que_nao_casa_nao_silencia_nada(nuvem, monkeypatch):
+    """Casar por chave é o que impede a evidência de um achado silenciar outro."""
+    github, _ = nuvem
+    evento = preparar(
+        monkeypatch,
+        achados(lista=[achado(11)]),
+        evidencias(lista=[evidencia(999, entrada="nao")]),
+    )
+
+    publicador.lambda_handler(evento, None)
+
+    assert github.publicados[0]["veredito"].estado.value == "bloqueado"
+
+
+def test_auditoria_guarda_a_evidencia_e_o_raciocinio(nuvem, monkeypatch):
+    """A D11 pede evidência de cada um. O `raciocinio` mora aqui, nunca no
+    Check Run — lá seria texto de modelo num painel onde um humano decide."""
+    _, auditoria = nuvem
+    evento = preparar(
+        monkeypatch,
+        achados(lista=[achado(11)]),
+        evidencias(lista=[evidencia(11, entrada="nao")]),
+    )
+
+    publicador.lambda_handler(evento, None)
+
+    registro = auditoria.registros[0]
+    assert len(registro["evidencias"]) == 1
+    assert registro["evidencias"][0]["raciocinio"] == "olhei os chamadores"
+
+
+def test_evidencia_com_valor_fora_do_vocabulario_bloqueia(nuvem, monkeypatch):
+    """Levantar aqui deixaria o Check Run `in_progress` para sempre. O portão
+    mudo é pior desfecho que o portão fechado."""
+    github, _ = nuvem
+    evento = preparar(
+        monkeypatch,
+        achados(lista=[achado(11)]),
+        evidencias(lista=[evidencia(11, entrada="talvez")]),
+    )
+
+    publicador.lambda_handler(evento, None)
+
+    assert github.publicados[0]["veredito"].estado.value == "bloqueado"
+
+
+def test_analise_que_falhou_ignora_a_evidencia(nuvem, monkeypatch):
+    """Sem achado confiável não há o que silenciar: continua action_required."""
+    github, _ = nuvem
+    evento = preparar(
+        monkeypatch,
+        achados(ok=False, erro="semgrep saiu com 2"),
+        evidencias(lista=[evidencia(11, entrada="nao")]),
+    )
+
+    publicador.lambda_handler(evento, None)
+
+    assert github.publicados[0]["veredito"].estado.value == "nao_conclui"
 
 
 def test_warning_de_performance_em_linha_tocada_nao_bloqueia(nuvem, monkeypatch):

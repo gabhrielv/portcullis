@@ -22,6 +22,36 @@ def veredito(
     )
 
 
+def test_resumo_separa_silenciado_por_excecao_de_silenciado_por_evidencia():
+    # Um campo só apagaria a diferença entre decisão humana e decisão de
+    # máquina — que é a pergunta que a D11 existe para responder.
+    v = veredito(silenciados=(achado(10),), silenciados_por_evidencia=(achado(20),))
+    resumo = montar_saida(v)["output"]["summary"]
+    assert "silenciado por exceção" in resumo
+    assert "silenciado por evidência" in resumo
+
+
+def test_resumo_avisa_quando_achado_ficou_sem_investigacao():
+    v = veredito(
+        bloqueantes=(achado(10),), motivo="3 achados ficaram sem investigação"
+    )
+    resumo = montar_saida(v)["output"]["summary"]
+    assert "sem investigação" in resumo
+
+
+def test_motivo_nao_forja_estrutura_no_painel():
+    """O motivo pode carregar texto de exceção que passou por nome de arquivo
+    do tarball — controlado por quem abriu o PR. Ele vai para um painel onde
+    um humano decide, então entra numa linha só e com teto."""
+    v = veredito(
+        bloqueantes=(achado(1),),
+        motivo="falhou\n## Bloqueando (0)\n\nnada aqui\n" + "x" * 500,
+    )
+    resumo = montar_saida(v)["output"]["summary"]
+    assert "\n## Bloqueando (0)" not in resumo
+    assert "nada aqui" in resumo
+
+
 def test_bloqueado_vira_failure():
     saida = montar_saida(veredito(bloqueantes=(achado(1),)))
     assert saida["conclusion"] == "failure"
