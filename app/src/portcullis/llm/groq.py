@@ -44,13 +44,15 @@ LIMITE_MENSAGEM = 200
 class ClienteGroq:
     def __init__(self, chave: str, modelo: str):
         self._chave = chave
-        self._modelo = modelo
+        # Público de propósito: o nome do modelo vai para a evidência e daí
+        # para a auditoria. A chave nunca sai daqui.
+        self.modelo = modelo
 
     def conversar(
         self, mensagens: list[dict], ferramentas: tuple[Ferramenta, ...]
     ) -> RespostaLLM:
         corpo = {
-            "model": self._modelo,
+            "model": self.modelo,
             "messages": mensagens,
             "tools": [_como_ferramenta(f) for f in ferramentas],
             # Investigação não é criatividade: a mesma pergunta tem que dar a

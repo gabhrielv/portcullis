@@ -12,8 +12,9 @@ from portcullis.llm.cliente import Ferramenta, RespostaLLM
 class ClienteFalso:
     """Devolve as respostas da lista, na ordem, e guarda o que recebeu."""
 
-    def __init__(self, respostas: list[RespostaLLM]):
+    def __init__(self, respostas: list[RespostaLLM], modelo: str = "modelo-falso"):
         self._respostas = list(respostas)
+        self.modelo = modelo
         self.conversas: list[list[dict]] = []
 
     def conversar(
@@ -28,8 +29,9 @@ class ClienteFalso:
 
 
 class ClienteQueFalha:
-    def __init__(self, erro: Exception):
+    def __init__(self, erro: Exception, modelo: str = "modelo-falso"):
         self._erro = erro
+        self.modelo = modelo
 
     def conversar(
         self, mensagens: list[dict], ferramentas: tuple[Ferramenta, ...]

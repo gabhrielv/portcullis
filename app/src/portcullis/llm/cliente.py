@@ -46,6 +46,10 @@ class ProvedorIndisponivel(RuntimeError):
 
 
 class ClienteLLM(Protocol):
+    # Quem julgou precisa ficar registrado junto com o julgamento: sem isto, a
+    # auditoria não distingue mudança de modelo de mudança de prompt.
+    modelo: str
+
     def conversar(
         self, mensagens: list[dict], ferramentas: tuple[Ferramenta, ...]
     ) -> RespostaLLM: ...
