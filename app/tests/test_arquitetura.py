@@ -1,19 +1,28 @@
-"""Garante a restrição G6 mecanicamente, não por disciplina.
+"""Garante as restrições G6 e G11 mecanicamente, não por disciplina.
 
-O container não fala com o GitHub e não emite veredito (D14). Se alguém
-acrescentar um desses imports, este teste quebra.
+O analisador não fala com o GitHub e não emite veredito (D14). A investigadora
+lê código de terceiro e não pode ter credencial do GitHub nem escrever
+auditoria (D20) — ela PODE importar a regra, para pré-triar o que investigar.
+
+Promessa que só existe em prosa é promessa que a próxima refatoração quebra.
 """
 
 from pathlib import Path
 
-PROIBIDOS = ("portcullis.github", "portcullis.decisao", "portcullis.persistencia")
-PASTA_ANALISADOR = Path(__file__).resolve().parents[1] / "src" / "portcullis" / "analisador"
+SRC = Path(__file__).resolve().parents[1] / "src" / "portcullis"
+
+PROIBIDOS = {
+    "analisador": ("portcullis.github", "portcullis.decisao", "portcullis.persistencia"),
+    "investigadora": ("portcullis.github", "portcullis.persistencia"),
+    "agente": ("portcullis.github", "portcullis.persistencia", "boto3"),
+}
 
 
-def test_analisador_nao_importa_github_nem_decisao():
-    for arquivo in PASTA_ANALISADOR.rglob("*.py"):
-        conteudo = arquivo.read_text()
-        for proibido in PROIBIDOS:
-            assert proibido not in conteudo, (
-                f"{arquivo.name} importa {proibido} — viola a separação da D14"
-            )
+def test_pastas_respeitam_a_separacao_de_privilegio():
+    for pasta, proibidos in PROIBIDOS.items():
+        for arquivo in (SRC / pasta).rglob("*.py"):
+            conteudo = arquivo.read_text()
+            for proibido in proibidos:
+                assert proibido not in conteudo, (
+                    f"{pasta}/{arquivo.name} importa {proibido} — viola a separação"
+                )
