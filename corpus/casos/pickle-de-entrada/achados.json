@@ -1,0 +1,29 @@
+{
+  "ok": true,
+  "erro": null,
+  "owner": "corpus",
+  "repo": "pickle-de-entrada",
+  "head_sha": "0000000000000000000000000000000000000000",
+  "hash_regras": "fd16c10bc6b5",
+  "achados": [
+    {
+      "regra": "python.flask.security.insecure-deserialization.insecure-deserialization",
+      "severidade": "ERROR",
+      "categoria": "security",
+      "caminho": "app/sessao.py",
+      "linha_inicio": 10,
+      "linha_fim": 10,
+      "mensagem": "Detected the use of an insecure deserialization library in a Flask route. These libraries are prone to code execution vulnerabilities. Ensure user data does not enter this function. To fix this, try to avoid serializing whole objects. Consider instead using a serializer such as JSON."
+    },
+    {
+      "regra": "python.lang.security.deserialization.pickle.avoid-pickle",
+      "severidade": "WARNING",
+      "categoria": "security",
+      "caminho": "app/sessao.py",
+      "linha_inicio": 10,
+      "linha_fim": 10,
+      "mensagem": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format."
+    }
+  ],
+  "erros_de_analise": []
+}

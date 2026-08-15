@@ -1,0 +1,29 @@
+{
+  "ok": true,
+  "erro": null,
+  "owner": "corpus",
+  "repo": "pickle-de-arquivo-proprio",
+  "head_sha": "0000000000000000000000000000000000000000",
+  "hash_regras": "fd16c10bc6b5",
+  "achados": [
+    {
+      "regra": "python.lang.security.deserialization.pickle.avoid-pickle",
+      "severidade": "WARNING",
+      "categoria": "security",
+      "caminho": "app/indice.py",
+      "linha_inicio": 9,
+      "linha_fim": 9,
+      "mensagem": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format."
+    },
+    {
+      "regra": "python.lang.security.deserialization.pickle.avoid-pickle",
+      "severidade": "WARNING",
+      "categoria": "security",
+      "caminho": "app/indice.py",
+      "linha_inicio": 20,
+      "linha_fim": 20,
+      "mensagem": "Avoid using `pickle`, which is known to lead to code execution vulnerabilities. When unpickling, the serialized data could be manipulated to run arbitrary code. Instead, consider serializing the relevant data as JSON or a similar text-based serialization format."
+    }
+  ],
+  "erros_de_analise": []
+}

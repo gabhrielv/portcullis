@@ -1,0 +1,38 @@
+{
+  "ok": true,
+  "erro": null,
+  "owner": "corpus",
+  "repo": "markup-com-inteiro",
+  "head_sha": "0000000000000000000000000000000000000000",
+  "hash_regras": "fd16c10bc6b5",
+  "achados": [
+    {
+      "regra": "python.flask.security.xss.audit.explicit-unescape-with-markup.explicit-unescape-with-markup",
+      "severidade": "WARNING",
+      "categoria": "security",
+      "caminho": "app/carrinho.py",
+      "linha_inicio": 13,
+      "linha_fim": 13,
+      "mensagem": "Detected explicitly unescaped content using 'Markup()'. This permits the unescaped data to include unescaped HTML which could result in cross-site scripting. Ensure this data is not externally controlled, or consider rewriting to not use 'Markup()'."
+    },
+    {
+      "regra": "python.django.security.injection.raw-html-format.raw-html-format",
+      "severidade": "WARNING",
+      "categoria": "security",
+      "caminho": "app/carrinho.py",
+      "linha_inicio": 13,
+      "linha_fim": 13,
+      "mensagem": "Detected user input flowing into a manually constructed HTML string. You may be accidentally bypassing secure methods of rendering HTML by manually constructing HTML and this could create a cross-site scripting vulnerability, which could let attackers steal sensitive user data. To be sure this is safe, check that the HTML is rendered safely. Otherwise, use templates (`django.shortcuts.render`) which will safely render HTML instead."
+    },
+    {
+      "regra": "python.flask.security.injection.raw-html-concat.raw-html-format",
+      "severidade": "WARNING",
+      "categoria": "security",
+      "caminho": "app/carrinho.py",
+      "linha_inicio": 13,
+      "linha_fim": 13,
+      "mensagem": "Detected user input flowing into a manually constructed HTML string. You may be accidentally bypassing secure methods of rendering HTML by manually constructing HTML and this could create a cross-site scripting vulnerability, which could let attackers steal sensitive user data. To be sure this is safe, check that the HTML is rendered safely. Otherwise, use templates (`flask.render_template`) which will safely render HTML instead."
+    }
+  ],
+  "erros_de_analise": []
+}

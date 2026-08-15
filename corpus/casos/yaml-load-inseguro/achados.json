@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "erro": null,
+  "owner": "corpus",
+  "repo": "yaml-load-inseguro",
+  "head_sha": "0000000000000000000000000000000000000000",
+  "hash_regras": "fd16c10bc6b5",
+  "achados": [
+    {
+      "regra": "python.flask.security.insecure-deserialization.insecure-deserialization",
+      "severidade": "ERROR",
+      "categoria": "security",
+      "caminho": "app/importacao.py",
+      "linha_inicio": 9,
+      "linha_fim": 9,
+      "mensagem": "Detected the use of an insecure deserialization library in a Flask route. These libraries are prone to code execution vulnerabilities. Ensure user data does not enter this function. To fix this, try to avoid serializing whole objects. Consider instead using a serializer such as JSON."
+    }
+  ],
+  "erros_de_analise": []
+}

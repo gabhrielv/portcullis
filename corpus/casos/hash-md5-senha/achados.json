@@ -1,0 +1,29 @@
+{
+  "ok": true,
+  "erro": null,
+  "owner": "corpus",
+  "repo": "hash-md5-senha",
+  "head_sha": "0000000000000000000000000000000000000000",
+  "hash_regras": "fd16c10bc6b5",
+  "achados": [
+    {
+      "regra": "python.django.security.audit.unvalidated-password.unvalidated-password",
+      "severidade": "WARNING",
+      "categoria": "security",
+      "caminho": "app/cadastro.py",
+      "linha_inicio": 10,
+      "linha_fim": 10,
+      "mensagem": "The password on 'usuario' is being set without validating the password. Call django.contrib.auth.password_validation.validate_password() with validation functions before setting the password. See https://docs.djangoproject.com/en/3.0/topics/auth/passwords/ for more information."
+    },
+    {
+      "regra": "python.lang.security.audit.md5-used-as-password.md5-used-as-password",
+      "severidade": "WARNING",
+      "categoria": "security",
+      "caminho": "app/cadastro.py",
+      "linha_inicio": 10,
+      "linha_fim": 10,
+      "mensagem": "It looks like MD5 is used as a password hash. MD5 is not considered a secure password hash because it can be cracked by an attacker in a short amount of time. Use a suitable password hashing function such as scrypt. You can use `hashlib.scrypt`."
+    }
+  ],
+  "erros_de_analise": []
+}

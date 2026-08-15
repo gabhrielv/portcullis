@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "erro": null,
+  "owner": "corpus",
+  "repo": "path-traversal",
+  "head_sha": "0000000000000000000000000000000000000000",
+  "hash_regras": "fd16c10bc6b5",
+  "achados": [
+    {
+      "regra": "python.flask.security.injection.path-traversal-open.path-traversal-open",
+      "severidade": "ERROR",
+      "categoria": "security",
+      "caminho": "app/arquivos.py",
+      "linha_inicio": 11,
+      "linha_fim": 11,
+      "mensagem": "Found request data in a call to 'open'. Ensure the request data is validated or sanitized, otherwise it could result in path traversal attacks."
+    }
+  ],
+  "erros_de_analise": []
+}

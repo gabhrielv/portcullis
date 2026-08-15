@@ -1,0 +1,38 @@
+{
+  "ok": true,
+  "erro": null,
+  "owner": "corpus",
+  "repo": "command-injection",
+  "head_sha": "0000000000000000000000000000000000000000",
+  "hash_regras": "fd16c10bc6b5",
+  "achados": [
+    {
+      "regra": "python.flask.security.injection.subprocess-injection.subprocess-injection",
+      "severidade": "ERROR",
+      "categoria": "security",
+      "caminho": "app/diagnostico.py",
+      "linha_inicio": 11,
+      "linha_fim": 11,
+      "mensagem": "Detected user input entering a `subprocess` call unsafely. This could result in a command injection vulnerability. An attacker could use this vulnerability to execute arbitrary commands on the host, which allows them to download malware, scan sensitive data, or run any command they wish on the server. Do not let users choose the command to run. In general, prefer to use Python API versions of system commands. If you must use subprocess, use a dictionary to allowlist a set of commands."
+    },
+    {
+      "regra": "python.lang.security.dangerous-subprocess-use.dangerous-subprocess-use",
+      "severidade": "ERROR",
+      "categoria": "security",
+      "caminho": "app/diagnostico.py",
+      "linha_inicio": 11,
+      "linha_fim": 11,
+      "mensagem": "Detected subprocess function 'run' with user controlled data. A malicious actor could leverage this to perform command injection. You may consider using 'shlex.escape()'."
+    },
+    {
+      "regra": "python.lang.security.audit.subprocess-shell-true.subprocess-shell-true",
+      "severidade": "ERROR",
+      "categoria": "security",
+      "caminho": "app/diagnostico.py",
+      "linha_inicio": 11,
+      "linha_fim": 11,
+      "mensagem": "Found 'subprocess' function 'run' with 'shell=True'. This is dangerous because this call will spawn the command using a shell process. Doing so propagates current shell settings and variables, which makes it much easier for a malicious actor to execute commands. Use 'shell=False' instead."
+    }
+  ],
+  "erros_de_analise": []
+}

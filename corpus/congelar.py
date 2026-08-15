@@ -116,7 +116,9 @@ def congelar(entrada: dict) -> None:
         shutil.copy(dir_entrada / NOME_CONTEXTO, caso / NOME_CONTEXTO)
         (caso / NOME_ACHADOS).write_text(json.dumps(resultado, indent=2))
 
-    print(f"{entrada['id']}: {len(resultado['achados'])} achados")
+    # `flush` porque cada caso leva ~30 s e a saída não é tty quando isto roda
+    # pelo Makefile: sem ele, as 20 linhas só aparecem no fim, todas juntas.
+    print(f"{entrada['id']}: {len(resultado['achados'])} achados", flush=True)
 
 
 def principal(ids: list[str]) -> int:

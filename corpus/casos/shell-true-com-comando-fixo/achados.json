@@ -1,0 +1,20 @@
+{
+  "ok": true,
+  "erro": null,
+  "owner": "corpus",
+  "repo": "shell-true-com-comando-fixo",
+  "head_sha": "0000000000000000000000000000000000000000",
+  "hash_regras": "fd16c10bc6b5",
+  "achados": [
+    {
+      "regra": "python.lang.security.audit.subprocess-shell-true.subprocess-shell-true",
+      "severidade": "ERROR",
+      "categoria": "security",
+      "caminho": "app/versao.py",
+      "linha_inicio": 13,
+      "linha_fim": 13,
+      "mensagem": "Found 'subprocess' function 'run' with 'shell=True'. This is dangerous because this call will spawn the command using a shell process. Doing so propagates current shell settings and variables, which makes it much easier for a malicious actor to execute commands. Use 'shell=False' instead."
+    }
+  ],
+  "erros_de_analise": []
+}

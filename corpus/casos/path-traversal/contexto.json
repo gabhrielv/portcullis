@@ -1,0 +1,17 @@
+{
+  "owner": "corpus",
+  "repo": "path-traversal",
+  "head_sha": "0000000000000000000000000000000000000000",
+  "evento": "pull_request",
+  "numero_pr": 1,
+  "base_sha": null,
+  "tudo_novo": false,
+  "linhas_tocadas": {
+    "app/arquivos.py": [
+      [
+        8,
+        12
+      ]
+    ]
+  }
+}
