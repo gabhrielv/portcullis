@@ -10,5 +10,6 @@ output "nome_funcao_webhook" { value = module.funcoes.nome_funcao_webhook }
 # Lido pelo `make url-webhook`, para não repetir o App ID em dois lugares.
 output "github_app_id" { value = var.github_app_id }
 output "nome_funcao_buscadora" { value = module.funcoes.nome_funcao_buscadora }
+output "nome_funcao_investigadora" { value = module.funcoes.nome_funcao_investigadora }
 output "url_repositorio_analisador" { value = module.analisador.url_repositorio }
 output "url_api" { value = module.funcoes.url_api }

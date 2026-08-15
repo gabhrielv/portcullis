@@ -10,4 +10,6 @@ output "nome_funcao_webhook" { value = aws_lambda_function.webhook.function_name
 
 output "nome_funcao_buscadora" { value = aws_lambda_function.buscadora.function_name }
 
+output "nome_funcao_investigadora" { value = aws_lambda_function.investigadora.function_name }
+
 output "url_api" { value = trimsuffix(aws_apigatewayv2_stage.padrao.invoke_url, "/") }

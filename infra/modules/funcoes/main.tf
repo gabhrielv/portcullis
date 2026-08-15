@@ -4,6 +4,9 @@ data "aws_caller_identity" "atual" {}
 locals {
   # Só os parâmetros do projeto, não o Parameter Store inteiro.
   arn_parametros = "arn:aws:ssm:${data.aws_region.atual.region}:${data.aws_caller_identity.atual.account_id}:parameter/portcullis/github/*"
+  # Separado do de cima de propósito: quem alcança a chave do modelo não
+  # alcança a chave privada do App, e vice-versa.
+  arn_parametros_llm = "arn:aws:ssm:${data.aws_region.atual.region}:${data.aws_caller_identity.atual.account_id}:parameter/portcullis/llm/*"
 }
 
 # Esta Lambda fica FORA da VPC. Dentro, alcançar o SSM exigiria NAT Gateway
@@ -244,6 +247,166 @@ resource "aws_lambda_event_source_mapping" "fila_para_buscadora" {
 }
 
 # ---------------------------------------------------------------------------
+# Investigadora: achados.json -> loop do agente -> evidencias.json.
+# Fora da VPC porque precisa alcançar a API do modelo, e o analisador não tem
+# rota para lugar nenhum além do S3. Ela LÊ CÓDIGO DE TERCEIRO e não tem
+# credencial do GitHub nem da auditoria — é a D14 continuando de pé depois da
+# D20. A política abaixo é a G11 virando IAM: o que NÃO está nela é tão
+# importante quanto o que está.
+# ---------------------------------------------------------------------------
+
+resource "aws_iam_role" "investigadora" {
+  name = "${var.prefixo}-investigadora"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "investigadora" {
+  name = "${var.prefixo}-investigadora"
+  role = aws_iam_role.investigadora.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        # Lê o pacote em entrada/ e o resultado da análise em saida/.
+        Effect = "Allow"
+        Action = ["s3:GetObject"]
+        Resource = [
+          "${var.arn_bucket_pacotes}/entrada/*",
+          "${var.arn_bucket_pacotes}/saida/*",
+        ]
+      },
+      {
+        # Escreve só o evidencias.json, e só em saida/.
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
+        Resource = ["${var.arn_bucket_pacotes}/saida/*"]
+      },
+      {
+        # Só os parâmetros do modelo. A chave privada do App mora em
+        # /portcullis/github/, e ela não alcança esse prefixo.
+        # Sem `kms:Decrypt`: os parâmetros usam a chave gerenciada
+        # `alias/aws/ssm`, e para ela o GetParameter com WithDecryption basta.
+        # Chave própria do KMS custaria US$1/mês — sozinha, o maior gasto
+        # do projeto.
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter"]
+        Resource = [local.arn_parametros_llm]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "${aws_cloudwatch_log_group.investigadora.arn}:*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["sqs:SendMessage"]
+        Resource = aws_sqs_queue.investigadora_mortas.arn
+      },
+    ]
+  })
+}
+
+resource "aws_cloudwatch_log_group" "investigadora" {
+  name              = "/aws/lambda/${var.prefixo}-investigadora"
+  retention_in_days = 1
+}
+
+resource "aws_lambda_function" "investigadora" {
+  function_name    = "${var.prefixo}-investigadora"
+  role             = aws_iam_role.investigadora.arn
+  handler          = "portcullis.investigadora.handler.lambda_handler"
+  runtime          = "python3.12"
+  filename         = var.caminho_zip
+  source_code_hash = filebase64sha256(var.caminho_zip)
+
+  # Ela passa a maior parte do tempo ESPERANDO o modelo, e a Lambda cobra tempo
+  # de parede x memória. Ao contrário do analisador, memória alta aqui é pagar
+  # o dobro para esperar na mesma velocidade.
+  memory_size = 512
+  # 10 achados x 8 passos. O watchdog do código para em 60 s restantes e grava
+  # o que tem, então este teto é a rede, não o plano.
+  timeout = 600
+
+  environment {
+    variables = {
+      PORTCULLIS_PARAM_CHAVE_LLM  = var.parametro_chave_llm
+      PORTCULLIS_PARAM_MODELO_LLM = var.parametro_modelo_llm
+    }
+  }
+
+  depends_on = [aws_cloudwatch_log_group.investigadora]
+}
+
+# Se ela morrer sem escrever, a publicadora não acorda, o Check Run fica
+# `in_progress` para sempre e ninguém recebe motivo nenhum. O merge continua
+# travado, mas em silêncio — e é o silêncio que esta fila quebra.
+resource "aws_sqs_queue" "investigadora_mortas" {
+  name                      = "${var.prefixo}-investigadora-mortas"
+  message_retention_seconds = 1209600
+}
+
+resource "aws_lambda_function_event_invoke_config" "investigadora" {
+  function_name = aws_lambda_function.investigadora.function_name
+  # Uma, não duas como na publicadora: aqui cada tentativa roda o loop inteiro
+  # de novo e gasta token de verdade. Uma cobre a falha transitória do S3 sem
+  # triplicar a conta numa falha determinística.
+  maximum_retry_attempts = 1
+
+  destination_config {
+    on_failure {
+      destination = aws_sqs_queue.investigadora_mortas.arn
+    }
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "investigadora_mortas" {
+  alarm_name          = "${var.prefixo}-investigadora-mortas"
+  namespace           = "AWS/SQS"
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  dimensions          = { QueueName = aws_sqs_queue.investigadora_mortas.name }
+  statistic           = "Maximum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  alarm_description   = "Investigadora falhou e a evidencia nao foi gravada"
+  alarm_actions       = [var.arn_topico_alertas]
+}
+
+# D17: "degradar em silêncio é pior que falhar". Sem este alarme você roda meses
+# achando que a triagem funciona enquanto o portão repassa achado cru. A métrica
+# vem do formato embutido no log da própria investigadora — sem PutMetricData e
+# sem custo.
+resource "aws_cloudwatch_metric_alarm" "degradado" {
+  alarm_name          = "${var.prefixo}-modo-degradado"
+  namespace           = "portcullis"
+  metric_name         = "ExecucoesDegradadas"
+  statistic           = "Sum"
+  period              = 3600
+  evaluation_periods  = 1
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_description   = "Analise rodou sem triagem por IA"
+  alarm_actions       = [var.arn_topico_alertas]
+}
+
+resource "aws_lambda_permission" "s3_invoca_investigadora" {
+  statement_id  = "AllowS3Invoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.investigadora.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = var.arn_bucket_pacotes
+}
+
+# ---------------------------------------------------------------------------
 # Publicadora: evento do S3 -> regra -> Check Run + auditoria.
 # Fora da VPC porque fala com o github.com. É ela que decide — o analisador
 # só produz evidência.
@@ -377,17 +540,35 @@ resource "aws_lambda_permission" "s3_invoca_publicadora" {
 
 # A notificação mora aqui, e não no módulo `pacotes`, para não criar ciclo: o
 # bucket precisaria do ARN da função, e a função precisa do ARN do bucket.
+#
+# OS DOIS DESTINOS VÃO NO MESMO RECURSO. O S3 aceita uma única configuração de
+# notificação por bucket; dois `aws_s3_bucket_notification` não somam — o
+# segundo apply sobrescreve o primeiro, sem erro e sem plan sujo.
+#
+# Os sufixos são o que impede o laço: a investigadora acorda no achados.json e
+# escreve evidencias.json, que acorda a publicadora, que não escreve nada no
+# bucket. Sufixo errado aqui faz a investigadora se reinvocar em loop.
 resource "aws_s3_bucket_notification" "achados" {
   bucket = var.nome_bucket_pacotes
 
   lambda_function {
-    lambda_function_arn = aws_lambda_function.publicadora.arn
+    lambda_function_arn = aws_lambda_function.investigadora.arn
     events              = ["s3:ObjectCreated:*"]
     filter_prefix       = "saida/"
     filter_suffix       = "achados.json"
   }
 
-  depends_on = [aws_lambda_permission.s3_invoca_publicadora]
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.publicadora.arn
+    events              = ["s3:ObjectCreated:*"]
+    filter_prefix       = "saida/"
+    filter_suffix       = "evidencias.json"
+  }
+
+  depends_on = [
+    aws_lambda_permission.s3_invoca_publicadora,
+    aws_lambda_permission.s3_invoca_investigadora,
+  ]
 }
 
 # ---------------------------------------------------------------------------
