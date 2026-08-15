@@ -6,18 +6,21 @@ quem decide. Nada aqui consulta rede.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 
 from portcullis.decisao.excecoes import silenciado
 from portcullis.modelos import (
     Achado,
     Contexto,
     EstadoVeredito,
+    Evidencia,
+    Resposta,
     Severidade,
     Veredito,
+    chave_do_achado,
 )
 
-VERSAO_REGRA = "2"
+VERSAO_REGRA = "3"
 
 CATEGORIA_SEGURANCA = "security"
 
@@ -42,9 +45,24 @@ def _e_novo(achado: Achado, contexto: Contexto) -> bool:
     return any(faixa.intersecta(achado.linha_inicio, achado.linha_fim) for faixa in faixas)
 
 
+def silencia_por_evidencia(evidencia: Evidencia | None) -> bool:
+    """A D6, sem folga. Pública porque o corpus mede exatamente esta função.
+
+    Silenciar exige evidência POSITIVA e localizada. Ausência de evidência,
+    `nao_sei`, ou prova que não aponta para lugar nenhum: tudo bloqueia. O
+    único jeito de o portão afrouxar é alguém afrouxar isto aqui.
+    """
+    if evidencia is None:
+        return False
+    if evidencia.entrada_controlavel is Resposta.NAO:
+        return True
+    return evidencia.sanitizacao_encontrada is Resposta.SIM and evidencia.prova_valida
+
+
 def decidir(
     achados: Iterable[Achado],
     contexto: Contexto,
+    evidencias: Mapping[str, Evidencia] | None = None,
     degradado: bool = False,
     motivo: str | None = None,
 ) -> Veredito:
@@ -52,16 +70,24 @@ def decidir(
     avisos: list[Achado] = []
     preexistentes: list[Achado] = []
     silenciados: list[Achado] = []
+    por_evidencia: list[Achado] = []
+    achadas = evidencias or {}
 
     for achado in achados:
+        # A ordem das cláusulas é parte da decisão: a evidência só é
+        # consultada depois de o achado já ser novo, não excetuado e de
+        # severidade bloqueante. Consultá-la antes deixaria o agente alcançar
+        # aviso e pré-existente, que ele não tem por que tocar.
         if not _e_novo(achado, contexto):
             preexistentes.append(achado)
         elif silenciado(achado.regra, achado.caminho):
             silenciados.append(achado)
-        elif _bloqueia(achado):
-            bloqueantes.append(achado)
-        else:
+        elif not _bloqueia(achado):
             avisos.append(achado)
+        elif silencia_por_evidencia(achadas.get(chave_do_achado(achado))):
+            por_evidencia.append(achado)
+        else:
+            bloqueantes.append(achado)
 
     estado = EstadoVeredito.BLOQUEADO if bloqueantes else EstadoVeredito.LIBERADO
 
@@ -71,6 +97,7 @@ def decidir(
         avisos=tuple(avisos),
         preexistentes=tuple(preexistentes),
         silenciados=tuple(silenciados),
+        silenciados_por_evidencia=tuple(por_evidencia),
         versao_regra=VERSAO_REGRA,
         degradado=degradado,
         motivo=motivo,

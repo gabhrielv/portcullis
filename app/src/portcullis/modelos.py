@@ -52,6 +52,41 @@ class Achado:
     categoria: str | None = None
 
 
+class Resposta(Enum):
+    """As três respostas que o agente pode dar. `NAO_SEI` bloqueia — ver D6."""
+
+    SIM = "sim"
+    NAO = "nao"
+    NAO_SEI = "nao_sei"
+
+
+def chave_do_achado(achado: Achado) -> str:
+    """Casa achado com evidência.
+
+    Índice de lista quebraria em silêncio se qualquer coisa reordenasse; isto é
+    derivado do próprio achado, e a mesma função gera dos dois lados.
+    """
+    return f"{achado.regra}|{achado.caminho}|{achado.linha_inicio}|{achado.linha_fim}"
+
+
+@dataclass(frozen=True)
+class Evidencia:
+    """O que o agente devolve. Ele NUNCA emite veredito — ver D6.
+
+    `prova_valida` é calculado por nós, conferindo que o `arquivo:linha` existe
+    no pacote: o modelo declara a prova, quem verifica é o código.
+    """
+
+    chave: str
+    entrada_controlavel: Resposta
+    sanitizacao_encontrada: Resposta
+    prova: str | None = None
+    prova_valida: bool = False
+    raciocinio: str = ""
+    passos: int = 0
+    tokens: int = 0
+
+
 @dataclass(frozen=True)
 class Contexto:
     """O que a buscadora sabe e o analisador precisa.
@@ -82,6 +117,7 @@ class Veredito:
     avisos        -> achado novo de severidade menor; não trava.
     preexistentes -> achado em linha que o PR não tocou; só no resumo.
     silenciados   -> achado novo que bateu numa exceção declarada; só no resumo.
+    silenciados_por_evidencia -> achado que bloquearia, silenciado pelo agente.
     """
 
     estado: EstadoVeredito
@@ -90,5 +126,10 @@ class Veredito:
     preexistentes: tuple[Achado, ...]
     versao_regra: str
     silenciados: tuple[Achado, ...] = ()
+    # Separado de `silenciados` de propósito: aquele é exceção que uma PESSOA
+    # escreveu em excecoes.py, este é julgamento de MODELO. Num campo só, a
+    # auditoria perderia a diferença entre decisão humana e decisão de máquina
+    # — que é exatamente a pergunta que a D11 existe para responder.
+    silenciados_por_evidencia: tuple[Achado, ...] = ()
     degradado: bool = False
     motivo: str | None = None
