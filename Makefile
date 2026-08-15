@@ -10,7 +10,8 @@ REGRAS := $(DIR_REGRAS)/default.yaml $(DIR_REGRAS)/security-audit.yaml
 PORTCULLIS_REGRAS := $(CURDIR)/$(DIR_REGRAS)/default.yaml,$(CURDIR)/$(DIR_REGRAS)/security-audit.yaml
 
 .PHONY: instalar teste teste-integracao lint regras imagem imagem-push subir \
-        pacote-lambda validar-infra infra url-webhook destruir corpus-congelar
+        pacote-lambda validar-infra infra url-webhook destruir corpus-congelar \
+        corpus
 
 .venv:
 	python3 -m venv .venv
@@ -38,6 +39,11 @@ regras: $(REGRAS)
 # de verdade, por isso fica fora do `make teste`. CASO="id id" limita o alcance.
 corpus-congelar: $(MARCA) $(REGRAS)
 	PORTCULLIS_REGRAS="$(PORTCULLIS_REGRAS)" $(PY) corpus/congelar.py $(CASO)
+
+# O placar da D12: critério de aceite de qualquer mexida no prompt ou no modelo.
+# Gasta cota do provedor e lê a chave do SSM, por isso fica fora do `make teste`.
+corpus: $(MARCA)
+	$(PY) corpus/rodar.py $(CASO)
 
 teste-integracao: $(MARCA) $(REGRAS)
 	cd app && PORTCULLIS_REGRAS="$(PORTCULLIS_REGRAS)" ../$(PY) -m pytest -v -m integracao

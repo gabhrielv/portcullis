@@ -12,6 +12,8 @@ terraform.tfstate.backup
 
 # artefatos de build (regras do semgrep, zip das lambdas)
 build/
+# saída do `make corpus`: medição, não código
+corpus/ultimo-placar.json
 
 # python
 __pycache__/
