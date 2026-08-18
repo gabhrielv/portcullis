@@ -58,6 +58,11 @@ class ClienteGroq:
             # Investigação não é criatividade: a mesma pergunta tem que dar a
             # mesma resposta, senão o corpus mede ruído em vez do agente.
             "temperature": 0,
+            # Amostragem gulosa não é o mesmo que provedor determinístico: em
+            # lote, o roteamento e a redução em ponto flutuante dependem da
+            # composição do batch. O `seed` é best-effort — reduz a divergência
+            # e não substitui a repetição seletiva do `rodar.py`.
+            "seed": 0,
         }
 
         ultimo = "sem resposta"
@@ -159,7 +164,9 @@ def _traduzir(dados: dict) -> RespostaLLM:
             argumentos = {}
         if not isinstance(argumentos, dict):
             argumentos = {}
-        chamadas.append(Chamada(nome=funcao["name"], argumentos=argumentos))
+        chamadas.append(
+            Chamada(nome=funcao["name"], argumentos=argumentos, id=bruta.get("id", ""))
+        )
 
     return RespostaLLM(
         chamadas=tuple(chamadas),

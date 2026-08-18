@@ -34,7 +34,9 @@ def achados(ok=True, erro=None, lista=None):
     }
 
 
-def achado(linha: int, severidade="ERROR", categoria="security", caminho="app.py"):
+def achado(
+    linha: int, severidade="ERROR", categoria="security", caminho="app.py", cwes=("89",)
+):
     return {
         "regra": "regra.x",
         "severidade": severidade,
@@ -43,6 +45,7 @@ def achado(linha: int, severidade="ERROR", categoria="security", caminho="app.py
         "linha_inicio": linha,
         "linha_fim": linha,
         "mensagem": "achei",
+        "cwes": list(cwes),
     }
 
 
@@ -332,3 +335,20 @@ def test_warning_de_performance_em_linha_tocada_nao_bloqueia(nuvem, monkeypatch)
     veredito = github.publicados[0]["veredito"]
     assert veredito.estado.value == "liberado"
     assert len(veredito.avisos) == 1
+
+
+def test_evidencia_nao_alcanca_achado_fora_de_fluxo(nuvem, monkeypatch):
+    """CWE-798 é credencial no código: o agente pode até ter respondido que
+    nada de fora controla a linha — e continua bloqueando."""
+    github, _ = nuvem
+    evento = preparar(
+        monkeypatch,
+        achados(lista=[achado(11, cwes=("798",))]),
+        evidencias(lista=[evidencia(11, entrada="nao")]),
+    )
+
+    publicador.lambda_handler(evento, None)
+
+    veredito = github.publicados[0]["veredito"]
+    assert veredito.estado.value == "bloqueado"
+    assert veredito.silenciados_por_evidencia == ()

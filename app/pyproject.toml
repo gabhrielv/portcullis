@@ -39,6 +39,10 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# A pontuação do corpus é o critério de aceite do marco 2 e precisa de teste.
+# Declarado aqui, não com sys.path no conftest — a T1 fechou que o conftest
+# não mexe em caminho.
+pythonpath = ["../corpus"]
 markers = [
     "integracao: precisa de rede ou de repositório local (desmarcado por padrão)",
 ]

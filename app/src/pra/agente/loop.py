@@ -13,7 +13,7 @@ import json
 import logging
 
 from pra.agente.ferramentas import Caixa
-from pra.agente.prompt import FERRAMENTAS, SISTEMA, primeira_mensagem
+from pra.agente.prompt import FERRAMENTAS, SISTEMA, envelopar, primeira_mensagem
 from pra.llm.cliente import Chamada, ClienteLLM
 from pra.modelos import Achado, Evidencia, Resposta, chave_do_achado
 
@@ -81,6 +81,37 @@ def _concluir(
     )
 
 
+def _turno_de_ferramenta(chamada: Chamada, saida: str, passo: int) -> list[dict]:
+    """O par pedido/resultado no formato que a API de verdade usa.
+
+    Antes isto era uma paráfrase em `assistant` e a saída em `user` — o mesmo
+    papel por onde chega a instrução do operador. Conteúdo escrito por quem
+    abriu o PR entrava indistinguível de nós (§4). O `role: tool` separa os
+    canais, e é também o formato em que o modelo aprendeu a usar ferramenta.
+
+    O id vem do provedor; quando ele não manda, o passo serve — a API recusa
+    um `role: tool` que não case com nenhum `tool_calls` do turno anterior.
+    """
+    identificador = chamada.id or f"chamada_{passo}"
+    return [
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": identificador,
+                    "type": "function",
+                    "function": {
+                        "name": chamada.nome,
+                        "arguments": json.dumps(chamada.argumentos),
+                    },
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": identificador, "content": envelopar(saida)},
+    ]
+
+
 def investigar(achado: Achado, caixa: Caixa, cliente: ClienteLLM) -> Evidencia:
     mensagens = [
         {"role": "system", "content": SISTEMA},
@@ -110,14 +141,7 @@ def investigar(achado: Achado, caixa: Caixa, cliente: ClienteLLM) -> Evidencia:
         if chamada.nome == "concluir":
             return _concluir(achado, chamada, caixa, passo, tokens)
 
-        saida = _executar(chamada, caixa)
-        mensagens.append(
-            {
-                "role": "assistant",
-                "content": f"[{chamada.nome} {json.dumps(chamada.argumentos)}]",
-            }
-        )
-        mensagens.append({"role": "user", "content": saida})
+        mensagens += _turno_de_ferramenta(chamada, _executar(chamada, caixa), passo)
 
         if tokens > TETO_TOKENS:
             logger.warning("teto de tokens estourado no passo %s: %s", passo, tokens)

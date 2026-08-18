@@ -10,6 +10,9 @@
       "regra": "python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query",
       "severidade": "ERROR",
       "categoria": "security",
+      "cwes": [
+        "89"
+      ],
       "caminho": "app/db.py",
       "linha_inicio": 7,
       "linha_fim": 7,

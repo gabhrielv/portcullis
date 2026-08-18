@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "erro": null,
+  "owner": "corpus",
+  "repo": "sanitizacao-removida-no-chamador-grande",
+  "head_sha": "0000000000000000000000000000000000000000",
+  "hash_regras": "fd16c10bc6b5",
+  "achados": [
+    {
+      "regra": "python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query",
+      "severidade": "ERROR",
+      "categoria": "security",
+      "cwes": [
+        "89"
+      ],
+      "caminho": "app/busca.py",
+      "linha_inicio": 7,
+      "linha_fim": 7,
+      "mensagem": "Avoiding SQL string concatenation: untrusted input concatenated with raw SQL query can result in SQL Injection. In order to execute raw query safely, prepared statement should be used. SQLAlchemy provides TextualSQL to easily used prepared statement with named parameters. For complex SQL composition, use SQL Expression Language or Schema Definition Language. In most cases, SQLAlchemy ORM will be a better option."
+    }
+  ],
+  "erros_de_analise": []
+}

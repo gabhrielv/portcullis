@@ -10,6 +10,9 @@
       "regra": "python.flask.security.injection.subprocess-injection.subprocess-injection",
       "severidade": "ERROR",
       "categoria": "security",
+      "cwes": [
+        "78"
+      ],
       "caminho": "app/diagnostico.py",
       "linha_inicio": 11,
       "linha_fim": 11,
@@ -19,6 +22,9 @@
       "regra": "python.lang.security.dangerous-subprocess-use.dangerous-subprocess-use",
       "severidade": "ERROR",
       "categoria": "security",
+      "cwes": [
+        "78"
+      ],
       "caminho": "app/diagnostico.py",
       "linha_inicio": 11,
       "linha_fim": 11,
@@ -28,6 +34,9 @@
       "regra": "python.lang.security.audit.subprocess-shell-true.subprocess-shell-true",
       "severidade": "ERROR",
       "categoria": "security",
+      "cwes": [
+        "78"
+      ],
       "caminho": "app/diagnostico.py",
       "linha_inicio": 11,
       "linha_fim": 11,

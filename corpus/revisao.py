@@ -15,8 +15,53 @@ from __future__ import annotations
 from pathlib import Path
 
 import yaml
+from congelar import raiz_do_caso
 
 RAIZ = Path(__file__).resolve().parent
+
+# `.gitignore` e `.tfvars` fechados em ```python mentem sobre o que são, e o
+# palheiro das variantes de escala traz .cfg, .txt e .json.
+CERCA_POR_SUFIXO = {
+    ".py": "python",
+    ".yaml": "yaml",
+    ".yml": "yaml",
+    ".json": "json",
+    ".toml": "toml",
+    ".cfg": "ini",
+    ".ini": "ini",
+    ".sh": "bash",
+    ".tf": "hcl",
+}
+
+
+def _cerca(caminho: Path) -> str:
+    return CERCA_POR_SUFIXO.get(caminho.suffix, "text")
+
+
+SUFIXO_GRANDE = "-grande"
+
+
+def _do_caso_pequeno(entrada: dict) -> set[str] | None:
+    """Os arquivos da variante pequena correspondente.
+
+    Derivado do caso base, não de uma lista de pastas do palheiro: assim o
+    recorte continua certo quando o `palheiro.py` mudar de layout, e não perde
+    a cadeia de chamadores só porque o `motivo` não a cita por nome.
+    """
+    base = RAIZ / "casos" / entrada["id"].removesuffix(SUFIXO_GRANDE)
+    raiz = base / "codigo" / "repo"
+    if not raiz.is_dir():
+        return None
+    return {p.relative_to(raiz).as_posix() for p in raiz.rglob("*") if p.is_file()}
+
+
+def _evidencia(entrada: dict) -> list[str]:
+    """O que conta como raciocínio certo, não só como veredito certo."""
+    linhas = ["**Evidência aceita:**", ""]
+    for esperada in entrada["evidencia_aceita"]:
+        campos = ", ".join(f"`{k}: {v}`" for k, v in esperada.items())
+        linhas.append(f"- {campos}")
+    return linhas + [""]
 
 
 def _numerar(texto: str) -> str:
@@ -43,20 +88,47 @@ def _caso(entrada: dict) -> list[str]:
     linhas = [
         f"## `{entrada['id']}`",
         "",
-        f"**{entrada['dificuldade']}** · padrão: `{entrada['padrao']}`",
+        f"**{entrada['dificuldade']}** · padrão: `{entrada['padrao']}`"
+        + (f"  ·  escala **{entrada['escala']}**" if entrada.get("escala") else "")
+        + ("  ·  🪤 **armadilha**" if entrada.get("arma_falso_negativo") else ""),
         "",
         f"Achado julgado: **`{alvo['arquivo']}:{alvo['linha']}`**  ",
         f"Regra: `{alvo['regra'].split('.')[-1]}`",
         "",
         f"**Meu argumento:** {' '.join(entrada['motivo'].split())}",
         "",
+        *_evidencia(entrada),
     ]
-    for arquivo in sorted(p for p in (caso / "codigo").rglob("*") if p.is_file()):
-        relativo = arquivo.relative_to(caso / "codigo").as_posix()
-        relativo = relativo.split("/", 1)[1] if "/" in relativo else relativo
+    raiz = raiz_do_caso(caso)
+    arquivos = sorted(p for p in raiz.rglob("*") if p.is_file())
+
+    # 150 arquivos de enchimento num Markdown é o oposto do que este documento
+    # existe para fazer. Na escala grande entra só o caminho que decide o caso.
+    do_caso = _do_caso_pequeno(entrada) if entrada.get("escala") == "grande" else None
+    if do_caso is not None:
+        interessantes = [p for p in arquivos if p.relative_to(raiz).as_posix() in do_caso]
+        linhas += [
+            (
+                f"> Escala grande: **{len(arquivos)} arquivos** na árvore, "
+                f"{len(arquivos) - len(interessantes)} de enchimento inerte gerado "
+                "por `palheiro.py`. Abaixo, só o caminho que decide o caso."
+            ),
+            "",
+        ]
+        arquivos = interessantes
+
+    for arquivo in arquivos:
+        relativo = arquivo.relative_to(raiz).as_posix()
         marca = "  ← **o achado está aqui**" if relativo == alvo["arquivo"] else ""
         corpo = arquivo.read_text(errors="replace").rstrip()
-        linhas += [f"`{relativo}`{marca}", "", "```python", _numerar(corpo), "```", ""]
+        linhas += [
+            f"`{relativo}`{marca}",
+            "",
+            f"```{_cerca(arquivo)}",
+            _numerar(corpo),
+            "```",
+            "",
+        ]
     return linhas + ["---", ""]
 
 
@@ -64,7 +136,7 @@ def gerar() -> Path:
     entradas = yaml.safe_load((RAIZ / "gabarito.yaml").read_text())
 
     linhas = [
-        "# Revisão do corpus — 20 casos",
+        f"# Revisão do corpus — {len(entradas)} casos",
         "",
         "> Gerado por `corpus/revisao.py`. **Não edite aqui** — a fonte é",
         "> `corpus/gabarito.yaml` e as árvores em `corpus/casos/<id>/codigo/repo/`.",
@@ -74,13 +146,20 @@ def gerar() -> Path:
         "Para cada **falso-positivo**: *eu erraria, lendo só a linha apontada?*",
         "Se não, o caso está fácil demais e mede pouco.",
         "",
-        "Para cada **vulnerável**: *dá para acertar sem investigar?*",
+        "Para cada **vulnerável**: *dá para acertar sem investigar?* E, se dá,",
+        "ele está marcado como 🪤 **armadilha**? Só a armadilha consegue arrancar",
+        "um falso-negativo — nos outros o portão já bloqueia por padrão, e o",
+        "acerto não mede o agente.",
+        "",
+        "Para **todos**: a *evidência aceita* é mesmo o único raciocínio honesto?",
+        "Se houver um segundo caminho defensável que não está na lista, o placar",
+        "vai contar raciocínio certo como errado.",
         "",
         "---",
         "",
         "## Os pares",
         "",
-        "Cinco regras disparam nos dois lados do gabarito. **O id da regra não",
+        "Quatro regras disparam nos dois lados do gabarito. **O id da regra não",
         "carrega sinal** — um agente que decidisse pelo nome tiraria 50%.",
         "",
         *_pares(entradas),
@@ -91,6 +170,7 @@ def gerar() -> Path:
 
     for rotulo, gabarito in (("FALSO-POSITIVOS", "FALSO_POSITIVO"), ("VULNERÁVEIS", "VULNERAVEL")):
         deste = [e for e in entradas if e["gabarito"] == gabarito]
+        deste.sort(key=lambda e: (e.get("escala", "") == "grande", e["id"]))
         linhas += [f"# {rotulo} ({len(deste)})", ""]
         for entrada in deste:
             linhas += _caso(entrada)

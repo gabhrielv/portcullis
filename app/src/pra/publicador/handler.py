@@ -56,6 +56,7 @@ def _achado_de(dados: dict) -> Achado:
         linha_fim=dados["linha_fim"],
         mensagem=dados["mensagem"],
         categoria=dados.get("categoria"),
+        cwes=tuple(dados.get("cwes") or ()),
     )
 
 

@@ -10,6 +10,9 @@
       "regra": "python.django.security.injection.sql.sql-injection-using-db-cursor-execute.sql-injection-db-cursor-execute",
       "severidade": "WARNING",
       "categoria": "security",
+      "cwes": [
+        "89"
+      ],
       "caminho": "app/usuarios.py",
       "linha_inicio": 11,
       "linha_fim": 13,
@@ -19,6 +22,9 @@
       "regra": "python.django.security.injection.tainted-sql-string.tainted-sql-string",
       "severidade": "ERROR",
       "categoria": "security",
+      "cwes": [
+        "915"
+      ],
       "caminho": "app/usuarios.py",
       "linha_inicio": 12,
       "linha_fim": 12,
@@ -28,6 +34,9 @@
       "regra": "python.flask.security.injection.tainted-sql-string.tainted-sql-string",
       "severidade": "ERROR",
       "categoria": "security",
+      "cwes": [
+        "704"
+      ],
       "caminho": "app/usuarios.py",
       "linha_inicio": 12,
       "linha_fim": 12,
@@ -37,6 +46,9 @@
       "regra": "python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query",
       "severidade": "ERROR",
       "categoria": "security",
+      "cwes": [
+        "89"
+      ],
       "caminho": "app/usuarios.py",
       "linha_inicio": 13,
       "linha_fim": 13,

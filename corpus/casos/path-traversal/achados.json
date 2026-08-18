@@ -10,6 +10,9 @@
       "regra": "python.flask.security.injection.path-traversal-open.path-traversal-open",
       "severidade": "ERROR",
       "categoria": "security",
+      "cwes": [
+        "22"
+      ],
       "caminho": "app/arquivos.py",
       "linha_inicio": 11,
       "linha_fim": 11,

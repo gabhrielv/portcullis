@@ -21,7 +21,7 @@ class ContextoLambda:
         return self._restante
 
 
-def _achado(linha=2, regra="python.lang.security.audit.sqli"):
+def _achado(linha=2, regra="python.lang.security.audit.sqli", cwes=("89",)):
     return {
         "regra": regra,
         "severidade": "ERROR",
@@ -30,6 +30,7 @@ def _achado(linha=2, regra="python.lang.security.audit.sqli"):
         "linha_inicio": linha,
         "linha_fim": linha,
         "mensagem": "possível SQL injection",
+        "cwes": list(cwes),
     }
 
 
@@ -255,3 +256,15 @@ def test_ordem_de_investigacao_e_estavel(s3, monkeypatch):
     handler.lambda_handler(_evento(), ContextoLambda())
     chaves = [e["chave"] for e in _escrito(s3)["evidencias"]]
     assert chaves[0].endswith("|app/db.py|1|1")
+
+
+def test_achado_fora_de_fluxo_nao_gasta_token(s3, monkeypatch):
+    """A pré-tria é por CWE também: pagar token para o modelo julgar uma
+    credencial escrita no código é gastar cota numa pergunta sem resposta."""
+    resultado = json.loads(s3.objetos[f"{PREFIXO_SAIDA}/achados.json"])
+    resultado["achados"] = [_achado(cwes=("798",))]
+    s3.objetos[f"{PREFIXO_SAIDA}/achados.json"] = json.dumps(resultado).encode()
+    monkeypatch.setattr(handler, "_cliente_llm", lambda: ClienteFalso([]))
+
+    handler.lambda_handler(_evento(), ContextoLambda())
+    assert _escrito(s3)["evidencias"] == []

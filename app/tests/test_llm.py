@@ -166,3 +166,27 @@ def test_a_chave_nunca_aparece_na_mensagem_de_erro(monkeypatch):
     with pytest.raises(ProvedorIndisponivel) as erro:
         ClienteGroq("segredo-secretissimo", "modelo-x").conversar([], (FERRAMENTA,))
     assert "segredo-secretissimo" not in str(erro.value)
+
+
+def test_o_id_da_chamada_de_ferramenta_vem_do_provedor(monkeypatch):
+    """Sem o id, o resultado não tem como voltar: `role: tool` exige um
+    `tool_call_id` que case com o `tool_calls` do turno anterior."""
+    corpo = _corpo_com_chamada()
+    corpo["choices"][0]["message"]["tool_calls"][0]["id"] = "call_abc123"
+    _responder(monkeypatch, RespostaFalsa(200, corpo))
+    assert cliente().conversar([], (FERRAMENTA,)).chamadas[0].id == "call_abc123"
+
+
+def test_provedor_sem_id_nao_derruba_a_traducao(monkeypatch):
+    _responder(monkeypatch, RespostaFalsa(200, _corpo_com_chamada()))
+    assert cliente().conversar([], (FERRAMENTA,)).chamadas[0].id == ""
+
+
+def test_o_corpo_pede_amostragem_determinista(monkeypatch):
+    """`temperature: 0` deixa a amostragem gulosa e não deixa o provedor
+    determinístico — inferência em lote decide empate. O `seed` é best-effort
+    documentado: não garante, reduz, e não substitui a repetição do corpus."""
+    chamadas = _responder(monkeypatch, RespostaFalsa(200, _corpo_com_chamada()))
+    cliente().conversar([], (FERRAMENTA,))
+    assert chamadas[0]["temperature"] == 0
+    assert chamadas[0]["seed"] == 0

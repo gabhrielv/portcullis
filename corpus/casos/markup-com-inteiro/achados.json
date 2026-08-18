@@ -10,6 +10,9 @@
       "regra": "python.flask.security.xss.audit.explicit-unescape-with-markup.explicit-unescape-with-markup",
       "severidade": "WARNING",
       "categoria": "security",
+      "cwes": [
+        "79"
+      ],
       "caminho": "app/carrinho.py",
       "linha_inicio": 13,
       "linha_fim": 13,
@@ -19,6 +22,9 @@
       "regra": "python.django.security.injection.raw-html-format.raw-html-format",
       "severidade": "WARNING",
       "categoria": "security",
+      "cwes": [
+        "79"
+      ],
       "caminho": "app/carrinho.py",
       "linha_inicio": 13,
       "linha_fim": 13,
@@ -28,6 +34,9 @@
       "regra": "python.flask.security.injection.raw-html-concat.raw-html-format",
       "severidade": "WARNING",
       "categoria": "security",
+      "cwes": [
+        "79"
+      ],
       "caminho": "app/carrinho.py",
       "linha_inicio": 13,
       "linha_fim": 13,

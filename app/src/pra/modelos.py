@@ -41,7 +41,13 @@ class FaixaLinhas:
 @dataclass(frozen=True)
 class Achado:
     """`categoria` é o `metadata.category` do semgrep: security, performance,
-    correctness. Vem `None` quando a regra não declara."""
+    correctness. Vem `None` quando a regra não declara.
+
+    `cwes` são os números do `metadata.cwe`, sem o prefixo. Medido em
+    18/08/2026: as 1057 regras de segurança dos conjuntos congelados declaram
+    CWE, todas. É por ele que a regra decide se a pergunta do agente — de onde
+    vem o valor — sequer se aplica ao achado.
+    """
 
     regra: str
     severidade: Severidade
@@ -50,6 +56,7 @@ class Achado:
     linha_fim: int
     mensagem: str
     categoria: str | None = None
+    cwes: tuple[str, ...] = ()
 
 
 class Resposta(Enum):

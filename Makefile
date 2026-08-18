@@ -4,6 +4,8 @@ TF := $(shell command -v terraform 2>/dev/null || echo $(HOME)/.local/bin/terraf
 MARCA := .venv/.instalado
 DIR_REGRAS := build/regras
 REPO_ALVO := gabhrielv/hoppr
+# O aceite roda com 3; o ciclo de desenvolvimento com 1.
+REPETICOES ?= 1
 REGRAS := $(DIR_REGRAS)/default.yaml $(DIR_REGRAS)/security-audit.yaml
 # Os dois conjuntos não se contêm: medido em 12/08/2026, cada um acha ERROR
 # que o outro não acha. Rodar os dois custa o mesmo tempo.
@@ -43,7 +45,7 @@ corpus-congelar: $(MARCA) $(REGRAS)
 # O placar da D12: critério de aceite de qualquer mexida no prompt ou no modelo.
 # Gasta cota do provedor e lê a chave do SSM, por isso fica fora do `make teste`.
 corpus: $(MARCA)
-	$(PY) corpus/rodar.py $(CASO)
+	$(PY) corpus/rodar.py --repeticoes $(REPETICOES) $(CASO)
 
 teste-integracao: $(MARCA) $(REGRAS)
 	cd app && PRA_REGRAS="$(PRA_REGRAS)" ../$(PY) -m pytest -v -m integracao

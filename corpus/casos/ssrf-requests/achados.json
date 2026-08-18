@@ -10,6 +10,9 @@
       "regra": "python.django.security.injection.ssrf.ssrf-injection-requests.ssrf-injection-requests",
       "severidade": "ERROR",
       "categoria": "security",
+      "cwes": [
+        "918"
+      ],
       "caminho": "app/coleta.py",
       "linha_inicio": 9,
       "linha_fim": 10,
@@ -19,6 +22,9 @@
       "regra": "python.flask.security.injection.ssrf-requests.ssrf-requests",
       "severidade": "ERROR",
       "categoria": "security",
+      "cwes": [
+        "918"
+      ],
       "caminho": "app/coleta.py",
       "linha_inicio": 10,
       "linha_fim": 10,

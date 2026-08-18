@@ -25,7 +25,7 @@ from pra.agente.loop import investigar
 from pra.agente.prompt import VERSAO_PROMPT
 from pra.analisador.pacote import NOME_CODIGO, NOME_CONTEXTO, extrair, ler_contexto
 from pra.config import obrigatoria, parametro_ssm
-from pra.decisao.regra import decidir, silencia_por_evidencia
+from pra.decisao.regra import decidir, investigavel, silencia_por_evidencia
 from pra.llm.cliente import CotaEsgotada, ProvedorIndisponivel
 from pra.llm.groq import ClienteGroq
 from pra.modelos import Achado, Evidencia, Severidade
@@ -70,6 +70,7 @@ def _achado_de(dados: dict) -> Achado:
         linha_fim=dados["linha_fim"],
         mensagem=dados["mensagem"],
         categoria=dados.get("categoria"),
+        cwes=tuple(dados.get("cwes") or ()),
     )
 
 
@@ -124,7 +125,9 @@ def _a_investigar(resultado: dict, contexto) -> list[Achado]:
     que duas regras na mesma linha ficariam à mercê da ordem do semgrep.
     """
     achados = [_achado_de(a) for a in resultado.get("achados", [])]
-    bloqueantes = decidir(achados, contexto).bloqueantes
+    # `investigavel` também: a regra já recusaria a evidência desses achados, e
+    # perguntar mesmo assim é gastar cota numa pergunta que não tem resposta.
+    bloqueantes = [a for a in decidir(achados, contexto).bloqueantes if investigavel(a)]
     return sorted(
         bloqueantes,
         key=lambda a: (ORDEM_SEVERIDADE[a.severidade], a.caminho, a.linha_inicio, a.regra),

@@ -10,6 +10,9 @@
       "regra": "python.lang.security.audit.subprocess-shell-true.subprocess-shell-true",
       "severidade": "ERROR",
       "categoria": "security",
+      "cwes": [
+        "78"
+      ],
       "caminho": "app/versao.py",
       "linha_inicio": 13,
       "linha_fim": 13,

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -50,6 +51,16 @@ def _sem_prefixo(check_id: str, prefixos: tuple[str, ...]) -> str:
     return check_id
 
 
+def _cwes(metadados: dict) -> tuple[str, ...]:
+    """Só o número. O texto do CWE varia entre versões do conjunto de regras e
+    não acrescenta nada a quem compara."""
+    bruto = metadados.get("cwe") or ()
+    if isinstance(bruto, str):
+        bruto = [bruto]
+    numeros = [m.group(1) for x in bruto if (m := re.match(r"CWE-(\d+)", str(x)))]
+    return tuple(dict.fromkeys(numeros))
+
+
 def parsear(saida: dict, prefixos: tuple[str, ...] = ()) -> list[Achado]:
     achados: list[Achado] = []
     for resultado in saida.get("results", []):
@@ -63,6 +74,7 @@ def parsear(saida: dict, prefixos: tuple[str, ...] = ()) -> list[Achado]:
                 linha_fim=resultado["end"]["line"],
                 mensagem=extra["message"].strip(),
                 categoria=extra.get("metadata", {}).get("category"),
+                cwes=_cwes(extra.get("metadata", {})),
             )
         )
     return achados

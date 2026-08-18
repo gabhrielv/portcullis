@@ -10,6 +10,9 @@
       "regra": "python.lang.security.deserialization.pickle.avoid-pickle",
       "severidade": "WARNING",
       "categoria": "security",
+      "cwes": [
+        "502"
+      ],
       "caminho": "app/indice.py",
       "linha_inicio": 9,
       "linha_fim": 9,
@@ -19,6 +22,9 @@
       "regra": "python.lang.security.deserialization.pickle.avoid-pickle",
       "severidade": "WARNING",
       "categoria": "security",
+      "cwes": [
+        "502"
+      ],
       "caminho": "app/indice.py",
       "linha_inicio": 20,
       "linha_fim": 20,

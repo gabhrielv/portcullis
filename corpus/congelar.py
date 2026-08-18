@@ -38,6 +38,22 @@ def ler_gabarito() -> list[dict]:
     return yaml.safe_load((RAIZ / "gabarito.yaml").read_text())
 
 
+def raiz_do_caso(caso: Path) -> Path:
+    """A pasta que vira o topo do tarball — a mesma raiz que a extração devolve.
+
+    Compartilhada com `rodar.py` e `revisao.py` porque arquivo solto em
+    `codigo/` erra dos três jeitos em silêncio: viaja na raiz do tarball, é
+    renderizado com o nome errado e some da comparação de caminho.
+    """
+    pastas = [p for p in (caso / "codigo").iterdir() if p.is_dir()]
+    if len(pastas) != 1:
+        raise CasoInvalido(f"{caso.name}: esperava uma pasta raiz em codigo/")
+    soltos = [p.name for p in (caso / "codigo").iterdir() if p.is_file()]
+    if soltos:
+        raise CasoInvalido(f"{caso.name}: arquivo fora da raiz do repo: {soltos}")
+    return pastas[0]
+
+
 def _contexto(entrada: dict) -> Contexto:
     return Contexto(
         owner="corpus",

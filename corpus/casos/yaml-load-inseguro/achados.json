@@ -10,6 +10,9 @@
       "regra": "python.flask.security.insecure-deserialization.insecure-deserialization",
       "severidade": "ERROR",
       "categoria": "security",
+      "cwes": [
+        "502"
+      ],
       "caminho": "app/importacao.py",
       "linha_inicio": 9,
       "linha_fim": 9,

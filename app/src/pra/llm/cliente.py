@@ -22,8 +22,12 @@ class Ferramenta:
 
 @dataclass(frozen=True)
 class Chamada:
+    """`id` é o do provedor. Ele volta como `tool_call_id` no resultado, e a
+    API recusa um `role: tool` que não case com nenhum `tool_calls`."""
+
     nome: str
     argumentos: dict
+    id: str = ""
 
 
 @dataclass(frozen=True)

@@ -38,6 +38,7 @@ def _serializar(achado: Achado, raiz: Path) -> dict:
         "regra": achado.regra,
         "severidade": achado.severidade.value,
         "categoria": achado.categoria,
+        "cwes": list(achado.cwes),
         "caminho": _relativizar(achado.caminho, raiz),
         "linha_inicio": achado.linha_inicio,
         "linha_fim": achado.linha_fim,

@@ -224,3 +224,43 @@ def test_id_da_regra_nao_carrega_o_caminho_do_arquivo_de_regras():
     }
     achado = parsear(saida, ("opt.pra.regras.",))[0]
     assert achado.regra == "python.jwt.security.jwt-hardcode"
+
+
+def _saida_com_cwe(cwe):
+    return {
+        "results": [
+            {
+                "check_id": "r",
+                "path": "a.py",
+                "start": {"line": 1},
+                "end": {"line": 1},
+                "extra": {
+                    "severity": "ERROR",
+                    "message": "m",
+                    "metadata": {"category": "security", "cwe": cwe},
+                },
+            }
+        ],
+        "errors": [],
+    }
+
+
+def test_parsear_extrai_os_cwe_da_regra():
+    """O CWE é o que separa achado de fluxo de dados de achado que não é — e
+    é ele que decide se o agente chega a ver o achado (D6)."""
+    cwe = ["CWE-89: Improper Neutralization of Special Elements used in an SQL Command"]
+    assert parsear(_saida_com_cwe(cwe))[0].cwes == ("89",)
+
+
+def test_parsear_aceita_cwe_declarado_como_texto_solto():
+    assert parsear(_saida_com_cwe("CWE-79: Cross-site Scripting"))[0].cwes == ("79",)
+
+
+def test_parsear_junta_varios_cwe_da_mesma_regra():
+    cwe = ["CWE-94: Code Injection", "CWE-95: Eval Injection"]
+    assert parsear(_saida_com_cwe(cwe))[0].cwes == ("94", "95")
+
+
+def test_parsear_sem_cwe_devolve_tupla_vazia():
+    """Vazio bloqueia: regra sem CWE nunca vira achado investigável."""
+    assert parsear(carregar_fixture())[2].cwes == ()
