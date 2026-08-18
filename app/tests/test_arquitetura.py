@@ -9,12 +9,12 @@ Promessa que só existe em prosa é promessa que a próxima refatoração quebra
 
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parents[1] / "src" / "portcullis"
+SRC = Path(__file__).resolve().parents[1] / "src" / "pra"
 
 PROIBIDOS = {
-    "analisador": ("portcullis.github", "portcullis.decisao", "portcullis.persistencia"),
-    "investigadora": ("portcullis.github", "portcullis.persistencia"),
-    "agente": ("portcullis.github", "portcullis.persistencia", "boto3"),
+    "analisador": ("pra.github", "pra.decisao", "pra.persistencia"),
+    "investigadora": ("pra.github", "pra.persistencia"),
+    "agente": ("pra.github", "pra.persistencia", "boto3"),
 }
 
 

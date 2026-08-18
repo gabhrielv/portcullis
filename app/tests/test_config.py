@@ -1,6 +1,6 @@
 import pytest
 
-from portcullis import config
+from pra import config
 
 
 class SsmFalso:
@@ -62,12 +62,12 @@ def test_esquecer_parametros_forca_nova_leitura(ssm):
 
 
 def test_obrigatoria_recusa_variavel_ausente(monkeypatch):
-    monkeypatch.delenv("PORTCULLIS_INEXISTENTE", raising=False)
+    monkeypatch.delenv("PRA_INEXISTENTE", raising=False)
     with pytest.raises(RuntimeError):
-        config.obrigatoria("PORTCULLIS_INEXISTENTE")
+        config.obrigatoria("PRA_INEXISTENTE")
 
 
 def test_obrigatoria_trata_string_vazia_como_ausente(monkeypatch):
-    monkeypatch.setenv("PORTCULLIS_VAZIA", "")
+    monkeypatch.setenv("PRA_VAZIA", "")
     with pytest.raises(RuntimeError):
-        config.obrigatoria("PORTCULLIS_VAZIA")
+        config.obrigatoria("PRA_VAZIA")

@@ -1,5 +1,5 @@
-from portcullis.decisao.regra import VERSAO_REGRA, decidir, nao_conclui
-from portcullis.modelos import (
+from pra.decisao.regra import VERSAO_REGRA, decidir, nao_conclui
+from pra.modelos import (
     Achado,
     Contexto,
     EstadoVeredito,

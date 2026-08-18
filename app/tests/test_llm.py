@@ -2,14 +2,14 @@ import pytest
 import requests
 from dubles import ClienteFalso
 
-from portcullis.llm.cliente import (
+from pra.llm.cliente import (
     ClienteLLM,
     CotaEsgotada,
     Ferramenta,
     ProvedorIndisponivel,
     RespostaLLM,
 )
-from portcullis.llm.groq import ESPERA_MAX_S, TENTATIVAS, ClienteGroq
+from pra.llm.groq import ESPERA_MAX_S, TENTATIVAS, ClienteGroq
 
 FERRAMENTA = Ferramenta(nome="buscar", descricao="acha termos", parametros={})
 
@@ -55,8 +55,8 @@ def _responder(monkeypatch, *respostas):
         chamadas.append(kwargs.get("json"))
         return fila.pop(0) if len(fila) > 1 else fila[0]
 
-    monkeypatch.setattr("portcullis.llm.groq.requests.post", post)
-    monkeypatch.setattr("portcullis.llm.groq.time.sleep", lambda _s: None)
+    monkeypatch.setattr("pra.llm.groq.requests.post", post)
+    monkeypatch.setattr("pra.llm.groq.time.sleep", lambda _s: None)
     return chamadas
 
 
@@ -152,8 +152,8 @@ def test_falha_de_rede_e_tratada_como_provedor_indisponivel(monkeypatch):
         chamadas.append(1)
         raise requests.ConnectionError("sem rota")
 
-    monkeypatch.setattr("portcullis.llm.groq.requests.post", post)
-    monkeypatch.setattr("portcullis.llm.groq.time.sleep", lambda _s: None)
+    monkeypatch.setattr("pra.llm.groq.requests.post", post)
+    monkeypatch.setattr("pra.llm.groq.time.sleep", lambda _s: None)
     with pytest.raises(ProvedorIndisponivel):
         cliente().conversar([], (FERRAMENTA,))
     assert len(chamadas) == TENTATIVAS

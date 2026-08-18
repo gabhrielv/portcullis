@@ -11,7 +11,7 @@ from functools import cache
 
 import boto3
 
-from portcullis.modelos import Achado, Veredito
+from pra.modelos import Achado, Veredito
 
 
 @cache

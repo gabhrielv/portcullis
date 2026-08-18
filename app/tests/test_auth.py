@@ -5,8 +5,8 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from portcullis.github import auth
-from portcullis.github.auth import TETO_GITHUB_S, jwt_do_app
+from pra.github import auth
+from pra.github.auth import TETO_GITHUB_S, jwt_do_app
 
 APP_ID = "123456"
 

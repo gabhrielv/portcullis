@@ -19,13 +19,13 @@ from pathlib import Path
 
 from congelar import CASOS, casa_alvo, ler_gabarito
 
-from portcullis.agente.ferramentas import Caixa
-from portcullis.agente.loop import investigar
-from portcullis.config import obrigatoria, parametro_ssm
-from portcullis.decisao.regra import silencia_por_evidencia
-from portcullis.llm.cliente import CotaEsgotada, ProvedorIndisponivel
-from portcullis.llm.groq import ClienteGroq
-from portcullis.modelos import Achado, Severidade
+from pra.agente.ferramentas import Caixa
+from pra.agente.loop import investigar
+from pra.config import obrigatoria, parametro_ssm
+from pra.decisao.regra import silencia_por_evidencia
+from pra.llm.cliente import CotaEsgotada, ProvedorIndisponivel
+from pra.llm.groq import ClienteGroq
+from pra.modelos import Achado, Severidade
 
 SAIDA = Path(__file__).resolve().parent / "ultimo-placar.json"
 
@@ -130,8 +130,8 @@ def principal(ids: list[str]) -> int:
         return 2
 
     cliente = ClienteGroq(
-        parametro_ssm(obrigatoria("PORTCULLIS_PARAM_CHAVE_LLM")),
-        parametro_ssm(obrigatoria("PORTCULLIS_PARAM_MODELO_LLM")),
+        parametro_ssm(obrigatoria("PRA_PARAM_CHAVE_LLM")),
+        parametro_ssm(obrigatoria("PRA_PARAM_MODELO_LLM")),
     )
     linhas, interrompido = rodar(entradas, cliente)
 

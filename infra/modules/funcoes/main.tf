@@ -3,10 +3,10 @@ data "aws_caller_identity" "atual" {}
 
 locals {
   # Só os parâmetros do projeto, não o Parameter Store inteiro.
-  arn_parametros = "arn:aws:ssm:${data.aws_region.atual.region}:${data.aws_caller_identity.atual.account_id}:parameter/portcullis/github/*"
+  arn_parametros = "arn:aws:ssm:${data.aws_region.atual.region}:${data.aws_caller_identity.atual.account_id}:parameter/pra/github/*"
   # Separado do de cima de propósito: quem alcança a chave do modelo não
   # alcança a chave privada do App, e vice-versa.
-  arn_parametros_llm = "arn:aws:ssm:${data.aws_region.atual.region}:${data.aws_caller_identity.atual.account_id}:parameter/portcullis/llm/*"
+  arn_parametros_llm = "arn:aws:ssm:${data.aws_region.atual.region}:${data.aws_caller_identity.atual.account_id}:parameter/pra/llm/*"
 }
 
 # Esta Lambda fica FORA da VPC. Dentro, alcançar o SSM exigiria NAT Gateway
@@ -67,7 +67,7 @@ resource "aws_cloudwatch_log_group" "webhook" {
 resource "aws_lambda_function" "webhook" {
   function_name = "${var.prefixo}-webhook"
   role          = aws_iam_role.webhook.arn
-  handler       = "portcullis.webhook.handler.lambda_handler"
+  handler       = "pra.webhook.handler.lambda_handler"
   runtime       = "python3.12"
   filename      = var.caminho_zip
   # Sem isto o Terraform não percebe que o código mudou e não redeploya.
@@ -85,8 +85,8 @@ resource "aws_lambda_function" "webhook" {
 
   environment {
     variables = {
-      PORTCULLIS_FILA_URL              = var.url_fila
-      PORTCULLIS_PARAM_SEGREDO_WEBHOOK = "/portcullis/github/segredo-webhook"
+      PRA_FILA_URL              = var.url_fila
+      PRA_PARAM_SEGREDO_WEBHOOK = "/pra/github/segredo-webhook"
     }
   }
 
@@ -212,7 +212,7 @@ resource "aws_cloudwatch_log_group" "buscadora" {
 resource "aws_lambda_function" "buscadora" {
   function_name    = "${var.prefixo}-buscadora"
   role             = aws_iam_role.buscadora.arn
-  handler          = "portcullis.buscador.handler.lambda_handler"
+  handler          = "pra.buscador.handler.lambda_handler"
   runtime          = "python3.12"
   filename         = var.caminho_zip
   source_code_hash = filebase64sha256(var.caminho_zip)
@@ -226,11 +226,11 @@ resource "aws_lambda_function" "buscadora" {
 
   environment {
     variables = {
-      PORTCULLIS_BUCKET_PACOTES    = var.nome_bucket_pacotes
-      PORTCULLIS_TABELA            = var.nome_tabela_auditoria
-      PORTCULLIS_FUNCAO_ANALISADOR = "${var.prefixo}-analisador"
-      PORTCULLIS_GITHUB_APP_ID     = var.github_app_id
-      PORTCULLIS_PARAM_CHAVE_APP   = "/portcullis/github/chave-privada"
+      PRA_BUCKET_PACOTES    = var.nome_bucket_pacotes
+      PRA_TABELA            = var.nome_tabela_auditoria
+      PRA_FUNCAO_ANALISADOR = "${var.prefixo}-analisador"
+      PRA_GITHUB_APP_ID     = var.github_app_id
+      PRA_PARAM_CHAVE_APP   = "/pra/github/chave-privada"
     }
   }
 
@@ -290,7 +290,7 @@ resource "aws_iam_role_policy" "investigadora" {
       },
       {
         # Só os parâmetros do modelo. A chave privada do App mora em
-        # /portcullis/github/, e ela não alcança esse prefixo.
+        # /pra/github/, e ela não alcança esse prefixo.
         # Sem `kms:Decrypt`: os parâmetros usam a chave gerenciada
         # `alias/aws/ssm`, e para ela o GetParameter com WithDecryption basta.
         # Chave própria do KMS custaria US$1/mês — sozinha, o maior gasto
@@ -321,7 +321,7 @@ resource "aws_cloudwatch_log_group" "investigadora" {
 resource "aws_lambda_function" "investigadora" {
   function_name    = "${var.prefixo}-investigadora"
   role             = aws_iam_role.investigadora.arn
-  handler          = "portcullis.investigadora.handler.lambda_handler"
+  handler          = "pra.investigadora.handler.lambda_handler"
   runtime          = "python3.12"
   filename         = var.caminho_zip
   source_code_hash = filebase64sha256(var.caminho_zip)
@@ -336,8 +336,8 @@ resource "aws_lambda_function" "investigadora" {
 
   environment {
     variables = {
-      PORTCULLIS_PARAM_CHAVE_LLM  = var.parametro_chave_llm
-      PORTCULLIS_PARAM_MODELO_LLM = var.parametro_modelo_llm
+      PRA_PARAM_CHAVE_LLM  = var.parametro_chave_llm
+      PRA_PARAM_MODELO_LLM = var.parametro_modelo_llm
     }
   }
 
@@ -386,7 +386,7 @@ resource "aws_cloudwatch_metric_alarm" "investigadora_mortas" {
 # sem custo.
 resource "aws_cloudwatch_metric_alarm" "degradado" {
   alarm_name          = "${var.prefixo}-modo-degradado"
-  namespace           = "portcullis"
+  namespace           = "pra"
   metric_name         = "ExecucoesDegradadas"
   statistic           = "Sum"
   period              = 3600
@@ -465,7 +465,7 @@ resource "aws_cloudwatch_log_group" "publicadora" {
 resource "aws_lambda_function" "publicadora" {
   function_name    = "${var.prefixo}-publicadora"
   role             = aws_iam_role.publicadora.arn
-  handler          = "portcullis.publicador.handler.lambda_handler"
+  handler          = "pra.publicador.handler.lambda_handler"
   runtime          = "python3.12"
   filename         = var.caminho_zip
   source_code_hash = filebase64sha256(var.caminho_zip)
@@ -474,9 +474,9 @@ resource "aws_lambda_function" "publicadora" {
 
   environment {
     variables = {
-      PORTCULLIS_TABELA          = var.nome_tabela_auditoria
-      PORTCULLIS_GITHUB_APP_ID   = var.github_app_id
-      PORTCULLIS_PARAM_CHAVE_APP = "/portcullis/github/chave-privada"
+      PRA_TABELA          = var.nome_tabela_auditoria
+      PRA_GITHUB_APP_ID   = var.github_app_id
+      PRA_PARAM_CHAVE_APP = "/pra/github/chave-privada"
     }
   }
 
@@ -618,7 +618,7 @@ resource "aws_iam_role_policy" "consulta" {
 resource "aws_lambda_function" "consulta" {
   function_name    = "${var.prefixo}-consulta"
   role             = aws_iam_role.consulta.arn
-  handler          = "portcullis.consulta.handler.lambda_handler"
+  handler          = "pra.consulta.handler.lambda_handler"
   runtime          = "python3.12"
   filename         = var.caminho_zip
   source_code_hash = filebase64sha256(var.caminho_zip)
@@ -627,7 +627,7 @@ resource "aws_lambda_function" "consulta" {
 
   environment {
     variables = {
-      PORTCULLIS_TABELA = var.nome_tabela_auditoria
+      PRA_TABELA = var.nome_tabela_auditoria
     }
   }
 

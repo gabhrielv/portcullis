@@ -14,7 +14,7 @@ import re
 
 import requests
 
-from portcullis.modelos import FaixaLinhas
+from pra.modelos import FaixaLinhas
 
 API = "https://api.github.com"
 TEMPO_LIMITE_S = 60

@@ -21,11 +21,11 @@ import sys
 import boto3
 import requests
 
-from portcullis.github.auth import jwt_do_app
+from pra.github.auth import jwt_do_app
 
 CONFIG_DO_HOOK = "https://api.github.com/app/hook/config"
-PARAMETRO_CHAVE = "/portcullis/github/chave-privada"
-PARAMETRO_SEGREDO = "/portcullis/github/segredo-webhook"
+PARAMETRO_CHAVE = "/pra/github/chave-privada"
+PARAMETRO_SEGREDO = "/pra/github/segredo-webhook"
 TEMPO_LIMITE_S = 10
 
 

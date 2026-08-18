@@ -1,6 +1,6 @@
 variable "prefixo" {
   type    = string
-  default = "portcullis"
+  default = "pra"
 }
 
 variable "regiao" {

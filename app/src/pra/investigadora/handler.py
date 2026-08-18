@@ -20,15 +20,15 @@ from pathlib import Path
 
 import boto3
 
-from portcullis.agente.ferramentas import Caixa
-from portcullis.agente.loop import investigar
-from portcullis.agente.prompt import VERSAO_PROMPT
-from portcullis.analisador.pacote import NOME_CODIGO, NOME_CONTEXTO, extrair, ler_contexto
-from portcullis.config import obrigatoria, parametro_ssm
-from portcullis.decisao.regra import decidir, silencia_por_evidencia
-from portcullis.llm.cliente import CotaEsgotada, ProvedorIndisponivel
-from portcullis.llm.groq import ClienteGroq
-from portcullis.modelos import Achado, Evidencia, Severidade
+from pra.agente.ferramentas import Caixa
+from pra.agente.loop import investigar
+from pra.agente.prompt import VERSAO_PROMPT
+from pra.analisador.pacote import NOME_CODIGO, NOME_CONTEXTO, extrair, ler_contexto
+from pra.config import obrigatoria, parametro_ssm
+from pra.decisao.regra import decidir, silencia_por_evidencia
+from pra.llm.cliente import CotaEsgotada, ProvedorIndisponivel
+from pra.llm.groq import ClienteGroq
+from pra.modelos import Achado, Evidencia, Severidade
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -42,7 +42,7 @@ TETO_ACHADOS = 10
 # tempo mata a Lambda antes de qualquer escrita.
 PISO_TEMPO_MS = 60_000
 
-ESPACO_METRICAS = "portcullis"
+ESPACO_METRICAS = "pra"
 
 
 @cache
@@ -52,8 +52,8 @@ def _cliente_s3():
 
 def _cliente_llm():
     return ClienteGroq(
-        parametro_ssm(obrigatoria("PORTCULLIS_PARAM_CHAVE_LLM")),
-        parametro_ssm(obrigatoria("PORTCULLIS_PARAM_MODELO_LLM")),
+        parametro_ssm(obrigatoria("PRA_PARAM_CHAVE_LLM")),
+        parametro_ssm(obrigatoria("PRA_PARAM_MODELO_LLM")),
     )
 
 

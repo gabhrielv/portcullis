@@ -7,8 +7,8 @@ seria indistinguível de uma mudança de modelo.
 
 from __future__ import annotations
 
-from portcullis.llm.cliente import Ferramenta
-from portcullis.modelos import Achado
+from pra.llm.cliente import Ferramenta
+from pra.modelos import Achado
 
 VERSAO_PROMPT = "1"
 

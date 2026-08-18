@@ -15,16 +15,16 @@ from pathlib import Path
 
 import boto3
 
-from portcullis.analisador.pacote import NOME_CODIGO, NOME_CONTEXTO, escrever_contexto
-from portcullis.buscador.github_api import (
+from pra.analisador.pacote import NOME_CODIGO, NOME_CONTEXTO, escrever_contexto
+from pra.buscador.github_api import (
     linhas_tocadas_de_pr,
     linhas_tocadas_de_push,
     tarball_para_s3,
 )
-from portcullis.config import obrigatoria, parametro_ssm
-from portcullis.github.auth import token_de_instalacao
-from portcullis.github.checks import criar_em_progresso
-from portcullis.modelos import Contexto, Evento
+from pra.config import obrigatoria, parametro_ssm
+from pra.github.auth import token_de_instalacao
+from pra.github.checks import criar_em_progresso
+from pra.modelos import Contexto, Evento
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -67,7 +67,7 @@ def _reservar(trabalho: dict) -> bool:
     dynamo = _cliente_dynamo()
     try:
         dynamo.put_item(
-            TableName=obrigatoria("PORTCULLIS_TABELA"),
+            TableName=obrigatoria("PRA_TABELA"),
             Item=_chave_lock(trabalho),
             ConditionExpression="attribute_not_exists(sha)",
         )
@@ -84,7 +84,7 @@ def _liberar(trabalho: dict) -> None:
     """
     try:
         _cliente_dynamo().delete_item(
-            TableName=obrigatoria("PORTCULLIS_TABELA"), Key=_chave_lock(trabalho)
+            TableName=obrigatoria("PRA_TABELA"), Key=_chave_lock(trabalho)
         )
     except Exception:
         logger.exception("nao consegui liberar o lock de %s", trabalho["head_sha"])
@@ -118,8 +118,8 @@ def _montar_contexto(trabalho: dict, token: str) -> Contexto:
 
 def _montar_pacote(trabalho: dict, bucket: str, prefixo: str) -> None:
     token = token_de_instalacao(
-        obrigatoria("PORTCULLIS_GITHUB_APP_ID"),
-        parametro_ssm(obrigatoria("PORTCULLIS_PARAM_CHAVE_APP")),
+        obrigatoria("PRA_GITHUB_APP_ID"),
+        parametro_ssm(obrigatoria("PRA_PARAM_CHAVE_APP")),
         trabalho["owner"],
         trabalho["repo"],
     )
@@ -158,7 +158,7 @@ def _processar(trabalho: dict) -> None:
         logger.info("duplicata ignorada: %s", prefixo)
         return
 
-    bucket = obrigatoria("PORTCULLIS_BUCKET_PACOTES")
+    bucket = obrigatoria("PRA_BUCKET_PACOTES")
     try:
         _montar_pacote(trabalho, bucket, prefixo)
         # Assíncrono: esperar os ~2 minutos da análise pagaria duas Lambdas ao
@@ -167,7 +167,7 @@ def _processar(trabalho: dict) -> None:
         # se a análise nunca foi disparada, e aí a reentrega precisa poder
         # tentar de novo em vez de bater no lock e devolver sucesso.
         _cliente_lambda().invoke(
-            FunctionName=obrigatoria("PORTCULLIS_FUNCAO_ANALISADOR"),
+            FunctionName=obrigatoria("PRA_FUNCAO_ANALISADOR"),
             InvocationType="Event",
             Payload=json.dumps({"bucket": bucket, "prefixo": prefixo}),
         )

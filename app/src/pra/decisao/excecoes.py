@@ -1,10 +1,10 @@
 """Achados que o portão não bloqueia.
 
-Mora no repositório do portcullis, e não no repositório analisado: quem abre um PR
+Mora no repositório do pra, e não no repositório analisado: quem abre um PR
 no alvo não alcança este arquivo. É a válvula de escape que substitui o
 `# nosemgrep`, desligado de propósito em `analisador/semgrep.py`.
 
-Escopo por repositório chega com o `.portcullis.yml` da D18, no marco 4.
+Escopo por repositório chega com o `.pra.yml` da D18, no marco 4.
 """
 
 from __future__ import annotations

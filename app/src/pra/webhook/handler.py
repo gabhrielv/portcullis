@@ -14,8 +14,8 @@ from functools import cache
 
 import boto3
 
-from portcullis.config import obrigatoria, parametro_ssm
-from portcullis.webhook.assinatura import conferir_assinatura
+from pra.config import obrigatoria, parametro_ssm
+from pra.webhook.assinatura import conferir_assinatura
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -99,7 +99,7 @@ def lambda_handler(evento_lambda: dict, _contexto) -> dict:
 
     nome_evento = _sanitizar(cabecalhos.get("x-github-event"))
 
-    segredo = parametro_ssm(obrigatoria("PORTCULLIS_PARAM_SEGREDO_WEBHOOK"))
+    segredo = parametro_ssm(obrigatoria("PRA_PARAM_SEGREDO_WEBHOOK"))
     if not conferir_assinatura(
         corpo_bruto, cabecalhos.get("x-hub-signature-256"), segredo
     ):
@@ -119,7 +119,7 @@ def lambda_handler(evento_lambda: dict, _contexto) -> dict:
         return _resposta(200, "nada a fazer")
 
     _cliente_sqs().send_message(
-        QueueUrl=obrigatoria("PORTCULLIS_FILA_URL"),
+        QueueUrl=obrigatoria("PRA_FILA_URL"),
         MessageBody=json.dumps(trabalho),
     )
     # Só campos estruturais. Título e descrição do PR são texto livre de quem

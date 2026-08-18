@@ -18,11 +18,11 @@ import sys
 
 import requests
 
-from portcullis.config import parametro_ssm
-from portcullis.github.auth import jwt_do_app
+from pra.config import parametro_ssm
+from pra.github.auth import jwt_do_app
 
 CONFIG_DO_HOOK = "https://api.github.com/app/hook/config"
-PARAMETRO_CHAVE = "/portcullis/github/chave-privada"
+PARAMETRO_CHAVE = "/pra/github/chave-privada"
 TEMPO_LIMITE_S = 10
 
 

@@ -12,10 +12,10 @@ from __future__ import annotations
 import json
 import logging
 
-from portcullis.agente.ferramentas import Caixa
-from portcullis.agente.prompt import FERRAMENTAS, SISTEMA, primeira_mensagem
-from portcullis.llm.cliente import Chamada, ClienteLLM
-from portcullis.modelos import Achado, Evidencia, Resposta, chave_do_achado
+from pra.agente.ferramentas import Caixa
+from pra.agente.prompt import FERRAMENTAS, SISTEMA, primeira_mensagem
+from pra.llm.cliente import Chamada, ClienteLLM
+from pra.modelos import Achado, Evidencia, Resposta, chave_do_achado
 
 logger = logging.getLogger(__name__)
 

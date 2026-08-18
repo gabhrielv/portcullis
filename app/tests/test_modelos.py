@@ -2,7 +2,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from portcullis.modelos import (
+from pra.modelos import (
     Achado,
     Contexto,
     Evento,

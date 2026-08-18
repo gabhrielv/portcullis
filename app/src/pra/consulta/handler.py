@@ -16,7 +16,7 @@ from functools import cache
 
 import boto3
 
-from portcullis.config import obrigatoria
+from pra.config import obrigatoria
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -46,7 +46,7 @@ def lambda_handler(evento_lambda: dict, _contexto) -> dict:
     if not all((owner, repo, sha)):
         return _resposta(400, {"erro": "parametros faltando", "liberado": False})
 
-    resultado = _tabela(obrigatoria("PORTCULLIS_TABELA")).get_item(
+    resultado = _tabela(obrigatoria("PRA_TABELA")).get_item(
         Key={"repo": f"{owner}#{repo}", "sha": sha}
     )
     item = resultado.get("Item")

@@ -13,7 +13,7 @@ import json
 import tarfile
 from pathlib import Path
 
-from portcullis.modelos import Contexto, Evento, FaixaLinhas
+from pra.modelos import Contexto, Evento, FaixaLinhas
 
 NOME_CODIGO = "codigo.tar.gz"
 NOME_CONTEXTO = "contexto.json"

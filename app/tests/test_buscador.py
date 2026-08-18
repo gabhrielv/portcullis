@@ -3,16 +3,16 @@ import json
 
 import pytest
 
-from portcullis.buscador import handler as buscador
-from portcullis.buscador.github_api import (
+from pra.buscador import handler as buscador
+from pra.buscador.github_api import (
     RepositorioGrandeDemais,
     fluxo_com_teto,
 )
-from portcullis.modelos import FaixaLinhas
+from pra.modelos import FaixaLinhas
 
-BUCKET = "portcullis-pacotes-1"
-FUNCAO = "portcullis-analisador"
-TABELA = "portcullis-auditoria"
+BUCKET = "pra-pacotes-1"
+FUNCAO = "pra-analisador"
+TABELA = "pra-auditoria"
 
 TRABALHO_PR = {
     "owner": "gabhrielv",
@@ -102,11 +102,11 @@ def nuvem(monkeypatch):
     monkeypatch.setattr(
         buscador, "linhas_tocadas_de_push", lambda *a, **k: ({}, True)
     )
-    monkeypatch.setenv("PORTCULLIS_BUCKET_PACOTES", BUCKET)
-    monkeypatch.setenv("PORTCULLIS_FUNCAO_ANALISADOR", FUNCAO)
-    monkeypatch.setenv("PORTCULLIS_TABELA", TABELA)
-    monkeypatch.setenv("PORTCULLIS_GITHUB_APP_ID", "4589712")
-    monkeypatch.setenv("PORTCULLIS_PARAM_CHAVE_APP", "/portcullis/github/chave-privada")
+    monkeypatch.setenv("PRA_BUCKET_PACOTES", BUCKET)
+    monkeypatch.setenv("PRA_FUNCAO_ANALISADOR", FUNCAO)
+    monkeypatch.setenv("PRA_TABELA", TABELA)
+    monkeypatch.setenv("PRA_GITHUB_APP_ID", "4589712")
+    monkeypatch.setenv("PRA_PARAM_CHAVE_APP", "/pra/github/chave-privada")
     return s3, dynamo, lamb
 
 

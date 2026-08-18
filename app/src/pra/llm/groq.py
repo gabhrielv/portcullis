@@ -16,7 +16,7 @@ import time
 
 import requests
 
-from portcullis.llm.cliente import (
+from pra.llm.cliente import (
     Chamada,
     CotaEsgotada,
     Ferramenta,

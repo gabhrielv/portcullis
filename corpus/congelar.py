@@ -17,14 +17,14 @@ from pathlib import Path
 
 import yaml
 
-from portcullis.analisador.main import analisar
-from portcullis.analisador.pacote import (
+from pra.analisador.main import analisar
+from pra.analisador.pacote import (
     NOME_ACHADOS,
     NOME_CODIGO,
     NOME_CONTEXTO,
     escrever_contexto,
 )
-from portcullis.modelos import Contexto, Evento, FaixaLinhas
+from pra.modelos import Contexto, Evento, FaixaLinhas
 
 RAIZ = Path(__file__).resolve().parent
 CASOS = RAIZ / "casos"

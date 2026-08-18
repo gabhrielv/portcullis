@@ -14,11 +14,11 @@ from functools import cache
 
 import boto3
 
-from portcullis.config import obrigatoria, parametro_ssm
-from portcullis.decisao.regra import decidir, nao_conclui
-from portcullis.github.auth import token_de_instalacao
-from portcullis.github.checks import publicar
-from portcullis.modelos import (
+from pra.config import obrigatoria, parametro_ssm
+from pra.decisao.regra import decidir, nao_conclui
+from pra.github.auth import token_de_instalacao
+from pra.github.checks import publicar
+from pra.modelos import (
     Achado,
     Contexto,
     Evento,
@@ -27,7 +27,7 @@ from portcullis.modelos import (
     Resposta,
     Severidade,
 )
-from portcullis.persistencia.dynamo import gravar_auditoria
+from pra.persistencia.dynamo import gravar_auditoria
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -132,15 +132,15 @@ def _processar(bucket: str, chave: str) -> None:
         veredito = nao_conclui(resultado.get("erro") or "analise falhou")
 
     token = token_de_instalacao(
-        obrigatoria("PORTCULLIS_GITHUB_APP_ID"),
-        parametro_ssm(obrigatoria("PORTCULLIS_PARAM_CHAVE_APP")),
+        obrigatoria("PRA_GITHUB_APP_ID"),
+        parametro_ssm(obrigatoria("PRA_PARAM_CHAVE_APP")),
         contexto.owner,
         contexto.repo,
     )
     publicar(token, contexto.owner, contexto.repo, contexto.head_sha, veredito)
 
     gravar_auditoria(
-        tabela=obrigatoria("PORTCULLIS_TABELA"),
+        tabela=obrigatoria("PRA_TABELA"),
         repo=f"{contexto.owner}#{contexto.repo}",
         sha=contexto.head_sha,
         veredito=veredito,

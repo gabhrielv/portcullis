@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
-from portcullis.decisao.excecoes import silenciado
-from portcullis.modelos import (
+from pra.decisao.excecoes import silenciado
+from pra.modelos import (
     Achado,
     Contexto,
     EstadoVeredito,

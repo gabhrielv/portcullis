@@ -6,11 +6,11 @@ import logging
 
 import pytest
 
-from portcullis.config import obrigatoria
-from portcullis.webhook import handler as webhook
+from pra.config import obrigatoria
+from pra.webhook import handler as webhook
 
 SEGREDO = "segredo-de-teste"
-FILA = "https://sqs.us-east-1.amazonaws.com/1/portcullis-analises"
+FILA = "https://sqs.us-east-1.amazonaws.com/1/pra-analises"
 
 REPOSITORIO = {
     "name": "hoppr",
@@ -36,8 +36,8 @@ def fila(monkeypatch):
     falsa = FilaFalsa()
     monkeypatch.setattr(webhook, "_cliente_sqs", lambda: falsa)
     monkeypatch.setattr(webhook, "parametro_ssm", lambda nome: SEGREDO)
-    monkeypatch.setenv("PORTCULLIS_FILA_URL", FILA)
-    monkeypatch.setenv("PORTCULLIS_PARAM_SEGREDO_WEBHOOK", "/portcullis/github/segredo-webhook")
+    monkeypatch.setenv("PRA_FILA_URL", FILA)
+    monkeypatch.setenv("PRA_PARAM_SEGREDO_WEBHOOK", "/pra/github/segredo-webhook")
     return falsa
 
 
@@ -74,15 +74,15 @@ def corpo_de_push(ref: str = "refs/heads/main", deleted: bool = False):
 
 
 def test_obrigatoria_recusa_variavel_ausente(monkeypatch):
-    monkeypatch.delenv("PORTCULLIS_INEXISTENTE", raising=False)
+    monkeypatch.delenv("PRA_INEXISTENTE", raising=False)
     with pytest.raises(RuntimeError):
-        obrigatoria("PORTCULLIS_INEXISTENTE")
+        obrigatoria("PRA_INEXISTENTE")
 
 
 def test_obrigatoria_trata_string_vazia_como_ausente(monkeypatch):
-    monkeypatch.setenv("PORTCULLIS_VAZIA", "")
+    monkeypatch.setenv("PRA_VAZIA", "")
     with pytest.raises(RuntimeError):
-        obrigatoria("PORTCULLIS_VAZIA")
+        obrigatoria("PRA_VAZIA")
 
 
 def test_assinatura_invalida_devolve_401_e_nao_enfileira(fila):

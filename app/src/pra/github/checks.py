@@ -11,10 +11,10 @@ from __future__ import annotations
 
 import requests
 
-from portcullis.modelos import Achado, EstadoVeredito, Veredito
+from pra.modelos import Achado, EstadoVeredito, Veredito
 
 API = "https://api.github.com"
-NOME_CHECAGEM = "seguranca/portcullis"
+NOME_CHECAGEM = "seguranca/pra"
 # Teto da API do GitHub por requisição.
 LIMITE_ANOTACOES = 50
 TEMPO_LIMITE_S = 30
