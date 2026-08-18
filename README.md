@@ -377,8 +377,20 @@ caso em que `nao_sei` é a resposta certa.
 **O aceite não é acurácia.** São dois números que não se compensam:
 
 - `falso-negativos == 0` **nos 15 vulneráveis**, não só nas 8 armadilhas
-- `ruído removido >= 4/7`
-- `veredito >= 19/22` — o piso, que é **o agente nulo + 4**
+- `ruído removido >= 4/7`, contando só o que foi calado **pelo motivo certo**
+- `veredito >= 19/22` — o piso, que é **o agente nulo + o mínimo de ruído**
+
+**Calar pelo motivo errado não paga.** `sqli-constante` é falso-positivo porque o
+valor vem de um enum fechado no código. Um modelo pode calá-lo por esse motivo,
+ou apontando uma "sanitização" que existe no arquivo do enum, passa no
+`prova_valida` e não sanitiza nada. Os dois acertavam o veredito; agora só o
+primeiro conta como ruído removido. Não é limiar novo — é exigir que duas
+colunas que já existiam concordem.
+
+**O mínimo é fração, não número fixo.** 55% dos falso-positivos, que com os 7 de
+hoje dá exatamente 4. Escrito como `>= 4`, envelheceria: num corpus com 20
+falso-positivos estaria dizendo que remover um quinto do ruído justifica o marco
+2 inteiro — o mesmo jeito que o `> 12/20` envelheceu.
 
 O denominador é o corpus todo de propósito. As armadilhas são onde um
 falso-negativo é *plausível* — comentário plantado, sanitizador de mentira,
