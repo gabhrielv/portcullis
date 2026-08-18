@@ -33,7 +33,7 @@ import time
 from pathlib import Path
 
 from congelar import CASOS, casa_alvo, ler_gabarito, raiz_do_caso
-from placar import evidencia_bate, mede, render, resumir
+from placar import aceite, evidencia_bate, mede, render, resumir
 
 from pra.agente.ferramentas import Caixa
 from pra.agente.loop import investigar
@@ -159,6 +159,18 @@ def principal(argumentos: list[str]) -> int:
             file=sys.stderr,
         )
         return 1
+
+    # Sair com 0 reprovando faria o aceite depender de alguém somar as colunas
+    # a olho. Códigos distintos porque as três falhas pedem coisas diferentes:
+    # 1 é esperar a cota voltar, 2 é erro de invocação, 3 é o agente regrediu.
+    passou, _ = aceite(linhas, entradas)
+    if not passou:
+        if opcoes.repeticoes < 3:
+            print(
+                f"\n(rodou com {opcoes.repeticoes} execução(ões); o aceite oficial usa 3)",
+                file=sys.stderr,
+            )
+        return 3
     return 0
 
 

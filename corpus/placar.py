@@ -111,6 +111,55 @@ def linha_de_base(entradas: list[dict]) -> dict:
     }
 
 
+# Dos 7 falso-positivos, quantos a triagem precisa remover para se pagar.
+RUIDO_MINIMO = 4
+
+
+def aceite(linhas: list[dict], entradas: list[dict]) -> tuple[bool, list[str]]:
+    """O critério de aceite, em código. Devolve (passou, o que reprovou).
+
+    Ele mora aqui e não em prosa porque critério de aceite sem execução é
+    intenção: o placar imprimia números bonitos e ninguém era obrigado a somar.
+
+    **O piso de veredito é ancorado no agente nulo, não num número fixo.** Um
+    piso escrito como `>= 19` apodrece na próxima vez que o corpus mudar de
+    tamanho — foi exatamente o que aconteceu com o `> 12/20` quando o corpus
+    foi de 20 para 22 casos. Ancorado na base, ele acompanha sozinho.
+
+    **Hoje o piso é redundante, e isso é de propósito.** Para caso vulnerável
+    `veredito_certo` é o mesmo que `not falso_negativo`, então zero
+    falso-negativo já garante os 15, e o mínimo de ruído garante mais 4 — o
+    piso cai exatamente onde os outros dois critérios já colocavam. A
+    redundância é a rede: se alguém afrouxar o critério de falso-negativo, o
+    piso passa a ser o que segura, em vez de o teto cair em silêncio. O teste
+    `test_o_piso_e_redundante_enquanto_os_outros_dois_valerem` existe para
+    avisar no dia em que essa relação mudar.
+    """
+    vulneraveis = [x for x in linhas if x["gabarito"] == "VULNERAVEL"]
+    positivos = [x for x in linhas if x["gabarito"] == "FALSO_POSITIVO"]
+
+    negativos = sum(x["falso_negativo"] for x in vulneraveis)
+    ruido = sum(x["veredito_certo"] for x in positivos)
+    veredito = sum(x["veredito_certo"] for x in linhas)
+    piso = linha_de_base(entradas)["veredito"] + RUIDO_MINIMO
+
+    reprovou = []
+    if negativos:
+        reprovou.append(
+            f"falso-negativos: {negativos} em {len(vulneraveis)} vulneráveis (exige 0)"
+        )
+    if ruido < RUIDO_MINIMO:
+        reprovou.append(
+            f"ruído removido: {ruido}/{len(positivos)} (exige {RUIDO_MINIMO})"
+        )
+    if veredito < piso:
+        reprovou.append(
+            f"veredito: {veredito}/{len(linhas)} (exige {piso}, "
+            f"que é o agente nulo + {RUIDO_MINIMO})"
+        )
+    return not reprovou, reprovou
+
+
 def _fatia(linhas: list[dict], chave: str, valor: str) -> list[dict]:
     return [x for x in linhas if x[chave] == valor]
 
@@ -195,5 +244,10 @@ def render(linhas: list[dict], entradas: list[dict]) -> str:
         saida += ["INSTÁVEIS (oscilaram entre execuções):"]
         saida += [f"  {x['id']}" for x in instaveis]
         saida += [""]
+
+    passou, reprovou = aceite(linhas, entradas)
+    saida += ["APROVADO" if passou else "REPROVADO"]
+    saida += [f"  {motivo}" for motivo in reprovou]
+    saida += [""]
 
     return "\n".join(saida)

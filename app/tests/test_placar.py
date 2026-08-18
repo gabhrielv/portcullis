@@ -1,7 +1,7 @@
 """A pontuação do corpus. Ela é o critério de aceite de qualquer mexida no
 prompt ou no modelo — errar aqui reporta um número bonito sem avisar."""
 
-from placar import evidencia_bate, linha_de_base, mede, render, resumir
+from placar import RUIDO_MINIMO, aceite, evidencia_bate, linha_de_base, mede, render, resumir
 
 from pra.modelos import Evidencia, Resposta
 
@@ -146,3 +146,92 @@ def test_o_placar_mostra_a_coluna_da_linha_de_base():
     assert "medido base" in linhas_do_texto
     assert "veredito 3/3 2/3" in linhas_do_texto
     assert any(x.startswith("raciocínio 3/3 0/3") for x in linhas_do_texto)
+
+
+# --- o aceite ---------------------------------------------------------------
+
+
+def _corpus(vulneraveis: int, positivos: int):
+    """Devolve (entradas, construtor de linhas) para montar um placar de teste."""
+    entradas = [_caso("VULNERAVEL") for _ in range(vulneraveis)]
+    entradas += [_caso("FALSO_POSITIVO") for _ in range(positivos)]
+    return entradas
+
+
+def _linhas(entradas, silenciados_vuln=0, silenciados_fp=None):
+    """`silenciados_fp` é quantos falso-positivos o agente acertou (silenciou)."""
+    if silenciados_fp is None:
+        silenciados_fp = sum(1 for e in entradas if e["gabarito"] == "FALSO_POSITIVO")
+    linhas, vistos_v, vistos_f = [], 0, 0
+    for e in entradas:
+        if e["gabarito"] == "VULNERAVEL":
+            silenciou = vistos_v < silenciados_vuln
+            vistos_v += 1
+        else:
+            silenciou = vistos_f < silenciados_fp
+            vistos_f += 1
+        linhas.append(resumir(e, [_exec(silenciou)]))
+    return linhas
+
+
+def test_agente_perfeito_passa():
+    entradas = _corpus(15, 7)
+    passou, reprovou = aceite(_linhas(entradas), entradas)
+    assert passou is True
+    assert reprovou == []
+
+
+def test_um_falso_negativo_reprova_mesmo_com_ruido_perfeito():
+    """A regra que não se compensa: 21/22 de veredito com uma vulnerabilidade
+    solta não passa."""
+    entradas = _corpus(15, 7)
+    passou, reprovou = aceite(_linhas(entradas, silenciados_vuln=1), entradas)
+    assert passou is False
+    assert any("falso-negativos" in m for m in reprovou)
+
+
+def test_ruido_abaixo_do_minimo_reprova():
+    entradas = _corpus(15, 7)
+    linhas = _linhas(entradas, silenciados_fp=RUIDO_MINIMO - 1)
+    passou, reprovou = aceite(linhas, entradas)
+    assert passou is False
+    assert any("ruído removido" in m for m in reprovou)
+
+
+def test_o_piso_e_ancorado_no_agente_nulo_nao_num_numero_fixo():
+    """`>= 19` apodreceria na próxima mudança de tamanho do corpus — foi o que
+    aconteceu com o `> 12/20`. O piso acompanha a base."""
+    pequeno = _corpus(5, 3)
+    grande = _corpus(15, 7)
+    piso_pequeno = linha_de_base(pequeno)["veredito"] + RUIDO_MINIMO
+    piso_grande = linha_de_base(grande)["veredito"] + RUIDO_MINIMO
+    assert piso_pequeno == 5 + RUIDO_MINIMO
+    assert piso_grande == 15 + RUIDO_MINIMO
+
+
+def test_o_piso_e_redundante_enquanto_os_outros_dois_valerem():
+    """A rede, e o alarme.
+
+    Para caso vulnerável `veredito_certo` é o mesmo que `not falso_negativo`,
+    então zero falso-negativo mais o mínimo de ruído já colocam o veredito
+    acima do piso. Enquanto isso valer, o piso nunca reprova sozinho.
+
+    Se este teste quebrar, alguém afrouxou o critério de falso-negativo e o
+    piso passou a ser o que segura o portão — que é a hora de olhar para ele,
+    e não a hora de apagá-lo.
+    """
+    entradas = _corpus(15, 7)
+    for ruido in range(RUIDO_MINIMO, 8):
+        linhas = _linhas(entradas, silenciados_vuln=0, silenciados_fp=ruido)
+        passou, reprovou = aceite(linhas, entradas)
+        assert passou is True, reprovou
+        assert not any("veredito:" in m for m in reprovou)
+
+
+def test_o_placar_imprime_o_veredito_do_aceite():
+    """Sem isto o aceite volta a depender de alguém somar as colunas a olho."""
+    entradas = _corpus(15, 7)
+    aprovado = render(_linhas(entradas), entradas)
+    reprovado = render(_linhas(entradas, silenciados_vuln=1), entradas)
+    assert "APROVADO" in aprovado
+    assert "REPROVADO" in reprovado
