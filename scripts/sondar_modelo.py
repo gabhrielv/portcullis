@@ -68,7 +68,12 @@ def limites(chave: str, modelo: str) -> dict:
     resposta = requests.post(
         URL,
         headers={"Authorization": f"Bearer {chave}"},
-        json={"model": modelo, "messages": [{"role": "user", "content": "oi"}], "max_tokens": 1},
+        json={
+            "model": modelo,
+            "messages": [{"role": "user", "content": "oi"}],
+            # `max_tokens` está deprecado em favor deste desde a revisão da API.
+            "max_completion_tokens": 1,
+        },
         timeout=TEMPO_LIMITE_S,
     )
     return {

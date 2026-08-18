@@ -190,3 +190,14 @@ def test_o_corpo_pede_amostragem_determinista(monkeypatch):
     cliente().conversar([], (FERRAMENTA,))
     assert chamadas[0]["temperature"] == 0
     assert chamadas[0]["seed"] == 0
+
+
+def test_o_corpo_desliga_chamada_paralela(monkeypatch):
+    """O padrão do provedor é `true` e o loop consome uma chamada por turno.
+
+    Ligado, o excedente some sem sinal e sai do orçamento de 8 passos — e a
+    medida do corpus passaria a depender de o modelo fazer chamada paralela.
+    """
+    chamadas = _responder(monkeypatch, RespostaFalsa(200, _corpo_com_chamada()))
+    cliente().conversar([], (FERRAMENTA,))
+    assert chamadas[0]["parallel_tool_calls"] is False

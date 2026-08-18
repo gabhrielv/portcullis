@@ -63,6 +63,13 @@ class ClienteGroq:
             # composição do batch. O `seed` é best-effort — reduz a divergência
             # e não substitui a repetição seletiva do `rodar.py`.
             "seed": 0,
+            # O padrão do provedor é `true`, e o loop consome uma chamada por
+            # turno. Sem desligar, o excedente é descartado em silêncio: o
+            # modelo pede três arquivos, recebe um, e a diferença sai do
+            # orçamento de 8 passos — o corpus passaria a medir o teto de
+            # passos, e a medida dependeria de o modelo fazer chamada paralela
+            # ou não, que é um eixo que não é o agente.
+            "parallel_tool_calls": False,
         }
 
         ultimo = "sem resposta"
