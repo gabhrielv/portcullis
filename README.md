@@ -378,6 +378,7 @@ caso em que `nao_sei` é a resposta certa.
 
 - `falso-negativos == 0` **nos 15 vulneráveis**, não só nas 8 armadilhas
 - `ruído removido >= 4/7`
+- `veredito >= 19/22` — o piso, que é **o agente nulo + 4**
 
 O denominador é o corpus todo de propósito. As armadilhas são onde um
 falso-negativo é *plausível* — comentário plantado, sanitizador de mentira,
@@ -387,6 +388,24 @@ moveria o índice das armadilhas: o pior erro possível apareceria só como item
 lista. As duas linhas existem porque uma mede qualidade e a outra é tripwire.
 
 Um agente com 21/22 de veredito e uma vulnerabilidade real solta **não passa**.
+
+**O aceite roda, não é parágrafo.** `make corpus` imprime `APROVADO` ou
+`REPROVADO` com o motivo, e sai com código 3 quando reprova — distinto de 1
+(cota acabou no meio) e 2 (erro de invocação), porque as três pedem coisas
+diferentes de quem opera. Critério de aceite que depende de alguém somar as
+colunas a olho é intenção, não critério.
+
+**O piso é ancorado no agente nulo, não num número fixo.** Escrito como `>= 19`
+ele apodreceria na próxima vez que o corpus mudasse de tamanho — foi exatamente
+o que aconteceu com o `> 12/20`, que virou letra morta quando o corpus foi de 20
+para 22 casos.
+
+E o piso é **redundante hoje, de propósito**. Para caso vulnerável,
+`veredito_certo` é a mesma condição que `not falso_negativo`: zero
+falso-negativo já garante os 15, e o mínimo de ruído garante mais 4. A
+redundância é a rede — se alguém afrouxar o critério de falso-negativo, o piso
+passa a ser o que segura o portão, em vez de o teto cair em silêncio. Há um
+teste guardando essa relação, e ele quebra no dia em que ela mudar.
 O critério antigo — *"acertos > 12/20"* — deixava passar, e 12/20 era exatamente
 o que o marco 1 já tirava sem investigar nada.
 
