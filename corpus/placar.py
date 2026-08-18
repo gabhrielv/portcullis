@@ -19,6 +19,8 @@ o agente nulo quase não pontua — quase, e não zero, porque há caso em que
 
 from __future__ import annotations
 
+from math import ceil
+
 from pra.modelos import Evidencia, Resposta
 
 
@@ -111,8 +113,31 @@ def linha_de_base(entradas: list[dict]) -> dict:
     }
 
 
-# Dos 7 falso-positivos, quantos a triagem precisa remover para se pagar.
-RUIDO_MINIMO = 4
+# Que fatia dos falso-positivos a triagem precisa remover para se pagar.
+# Fração, e não número absoluto: `>= 4` com 7 falso-positivos é exigente, com
+# 20 seria dizer que remover um quinto do ruído justifica o marco 2 inteiro.
+# Com os 7 de hoje dá 4 — igual ao número que estava escrito à mão.
+FRACAO_RUIDO = 0.55
+
+
+def ruido_minimo(entradas: list[dict]) -> int:
+    positivos = sum(1 for e in entradas if e["gabarito"] == "FALSO_POSITIVO")
+    return ceil(positivos * FRACAO_RUIDO)
+
+
+def ruido_removido(linhas: list[dict]) -> int:
+    """Falso-positivo calado **pelo motivo certo**.
+
+    Exigir os dois fecha o buraco que o ARQUITETURA nomeia: em `sqli-constante`
+    o modelo pode calar apontando uma "sanitização" no arquivo do enum — ela
+    existe, passa no `prova_valida`, e não sanitiza nada. Contando só o
+    veredito, esse acerto pagaria igual ao acerto de quem entendeu.
+    """
+    return sum(
+        1
+        for x in linhas
+        if x["gabarito"] == "FALSO_POSITIVO" and x["veredito_certo"] and x["raciocinio_certo"]
+    )
 
 
 def aceite(linhas: list[dict], entradas: list[dict]) -> tuple[bool, list[str]]:
@@ -138,24 +163,25 @@ def aceite(linhas: list[dict], entradas: list[dict]) -> tuple[bool, list[str]]:
     vulneraveis = [x for x in linhas if x["gabarito"] == "VULNERAVEL"]
     positivos = [x for x in linhas if x["gabarito"] == "FALSO_POSITIVO"]
 
+    minimo = ruido_minimo(entradas)
     negativos = sum(x["falso_negativo"] for x in vulneraveis)
-    ruido = sum(x["veredito_certo"] for x in positivos)
+    ruido = ruido_removido(linhas)
     veredito = sum(x["veredito_certo"] for x in linhas)
-    piso = linha_de_base(entradas)["veredito"] + RUIDO_MINIMO
+    piso = linha_de_base(entradas)["veredito"] + minimo
 
     reprovou = []
     if negativos:
         reprovou.append(
             f"falso-negativos: {negativos} em {len(vulneraveis)} vulneráveis (exige 0)"
         )
-    if ruido < RUIDO_MINIMO:
+    if ruido < minimo:
         reprovou.append(
-            f"ruído removido: {ruido}/{len(positivos)} (exige {RUIDO_MINIMO})"
+            f"ruído removido pelo motivo certo: {ruido}/{len(positivos)} (exige {minimo})"
         )
     if veredito < piso:
         reprovou.append(
             f"veredito: {veredito}/{len(linhas)} (exige {piso}, "
-            f"que é o agente nulo + {RUIDO_MINIMO})"
+            f"que é o agente nulo + {minimo})"
         )
     return not reprovou, reprovou
 
@@ -188,7 +214,7 @@ def render(linhas: list[dict], entradas: list[dict]) -> str:
 
     veredito = sum(x["veredito_certo"] for x in linhas)
     raciocinio = sum(x["raciocinio_certo"] for x in linhas)
-    ruido = sum(x["veredito_certo"] for x in positivos)
+    ruido = ruido_removido(linhas)
     negativos = sum(x["falso_negativo"] for x in armadilhas)
     # Nas armadilhas está o sinal; no total está o alarme. Um agente que
     # silenciasse `sqli-direto` não moveria o índice das armadilhas, e o pior
@@ -222,7 +248,7 @@ def render(linhas: list[dict], entradas: list[dict]) -> str:
             "ruído removido",
             f"{ruido}/{len(positivos)}",
             f"{base['ruido_removido']}/{len(positivos)}",
-            "<- onde está o sinal",
+            "<- calado PELO MOTIVO CERTO; onde está o sinal",
         ),
         _par("estabilidade", f"{estaveis}/{total}"),
         "",

@@ -1,7 +1,17 @@
 """A pontuação do corpus. Ela é o critério de aceite de qualquer mexida no
 prompt ou no modelo — errar aqui reporta um número bonito sem avisar."""
 
-from placar import RUIDO_MINIMO, aceite, evidencia_bate, linha_de_base, mede, render, resumir
+from placar import (
+    FRACAO_RUIDO,
+    aceite,
+    evidencia_bate,
+    linha_de_base,
+    mede,
+    render,
+    resumir,
+    ruido_minimo,
+    ruido_removido,
+)
 
 from pra.modelos import Evidencia, Resposta
 
@@ -192,7 +202,7 @@ def test_um_falso_negativo_reprova_mesmo_com_ruido_perfeito():
 
 def test_ruido_abaixo_do_minimo_reprova():
     entradas = _corpus(15, 7)
-    linhas = _linhas(entradas, silenciados_fp=RUIDO_MINIMO - 1)
+    linhas = _linhas(entradas, silenciados_fp=ruido_minimo(entradas) - 1)
     passou, reprovou = aceite(linhas, entradas)
     assert passou is False
     assert any("ruído removido" in m for m in reprovou)
@@ -203,10 +213,10 @@ def test_o_piso_e_ancorado_no_agente_nulo_nao_num_numero_fixo():
     aconteceu com o `> 12/20`. O piso acompanha a base."""
     pequeno = _corpus(5, 3)
     grande = _corpus(15, 7)
-    piso_pequeno = linha_de_base(pequeno)["veredito"] + RUIDO_MINIMO
-    piso_grande = linha_de_base(grande)["veredito"] + RUIDO_MINIMO
-    assert piso_pequeno == 5 + RUIDO_MINIMO
-    assert piso_grande == 15 + RUIDO_MINIMO
+    piso_pequeno = linha_de_base(pequeno)["veredito"] + ruido_minimo(pequeno)
+    piso_grande = linha_de_base(grande)["veredito"] + ruido_minimo(grande)
+    assert piso_pequeno == 5 + ruido_minimo(pequeno)
+    assert piso_grande == 15 + ruido_minimo(grande)
 
 
 def test_o_piso_e_redundante_enquanto_os_outros_dois_valerem():
@@ -221,7 +231,7 @@ def test_o_piso_e_redundante_enquanto_os_outros_dois_valerem():
     e não a hora de apagá-lo.
     """
     entradas = _corpus(15, 7)
-    for ruido in range(RUIDO_MINIMO, 8):
+    for ruido in range(ruido_minimo(entradas), 8):
         linhas = _linhas(entradas, silenciados_vuln=0, silenciados_fp=ruido)
         passou, reprovou = aceite(linhas, entradas)
         assert passou is True, reprovou
@@ -235,3 +245,36 @@ def test_o_placar_imprime_o_veredito_do_aceite():
     reprovado = render(_linhas(entradas, silenciados_vuln=1), entradas)
     assert "APROVADO" in aprovado
     assert "REPROVADO" in reprovado
+
+
+def test_calar_pelo_motivo_errado_nao_conta_como_ruido_removido():
+    """O buraco que o ARQUITETURA nomeia: em `sqli-constante` o modelo pode
+    calar apontando uma "sanitização" no arquivo do enum — ela existe, passa no
+    `prova_valida`, e não sanitiza nada. Contando só o veredito, esse acerto
+    pagaria igual ao de quem entendeu."""
+    entradas = [_caso("FALSO_POSITIVO"), _caso("FALSO_POSITIVO")]
+    linhas = [
+        resumir(entradas[0], [_exec(True, bateu=True)]),   # calou, e entendeu
+        resumir(entradas[1], [_exec(True, bateu=False)]),  # calou pelo motivo errado
+    ]
+    assert ruido_removido(linhas) == 1
+
+
+def test_o_minimo_de_ruido_acompanha_o_tamanho_do_corpus():
+    """`>= 4` fixo viraria trivial num corpus com 20 falso-positivos: estaria
+    dizendo que remover um quinto do ruído justifica o marco inteiro."""
+    assert ruido_minimo(_corpus(15, 7)) == 4      # o corpus de hoje, número idêntico
+    assert ruido_minimo(_corpus(15, 20)) == 11
+    assert ruido_minimo(_corpus(15, 4)) == 3      # e não exige perfeição no pequeno
+    assert 0 < FRACAO_RUIDO < 1
+
+
+def test_agente_que_cala_tudo_pelo_motivo_errado_reprova():
+    """Veredito bom, raciocínio vazio: reprova no ruído, que agora exige os dois."""
+    entradas = _corpus(15, 7)
+    linhas = [
+        resumir(e, [_exec(e["gabarito"] == "FALSO_POSITIVO", bateu=False)]) for e in entradas
+    ]
+    passou, reprovou = aceite(linhas, entradas)
+    assert passou is False
+    assert any("motivo certo" in m for m in reprovou)
