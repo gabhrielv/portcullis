@@ -1,4 +1,4 @@
-# PRA
+# PRA — Pull-Request Analyzer
 
 Portão de segurança para CI/CD. Um pull request abre, o código é analisado numa
 conta da AWS, e o botão de merge fica cinza se **aquele PR** introduziu um
