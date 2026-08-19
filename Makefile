@@ -6,6 +6,15 @@ DIR_REGRAS := build/regras
 REPO_ALVO := gabhrielv/hoppr
 # O aceite roda com 3; o ciclo de desenvolvimento com 1.
 REPETICOES ?= 1
+
+# O `.env` guarda os NOMES dos parâmetros no SSM, nunca os valores (G2), então
+# nada aqui é segredo. O `-` não quebra quando ele não existe, e o `?=` dá o
+# padrão do `.env.example`: sem ele um clone novo falha em `make corpus` com
+# "variável de ambiente não definida", que não diz o que fazer.
+-include .env
+PRA_PARAM_CHAVE_LLM ?= /pra/llm/chave
+PRA_PARAM_MODELO_LLM ?= /pra/llm/modelo
+export PRA_PARAM_CHAVE_LLM PRA_PARAM_MODELO_LLM
 REGRAS := $(DIR_REGRAS)/default.yaml $(DIR_REGRAS)/security-audit.yaml
 # Os dois conjuntos não se contêm: medido em 12/08/2026, cada um acha ERROR
 # que o outro não acha. Rodar os dois custa o mesmo tempo.
