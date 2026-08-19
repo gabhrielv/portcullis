@@ -10,7 +10,7 @@ from __future__ import annotations
 from pra.llm.cliente import Ferramenta
 from pra.modelos import Achado
 
-VERSAO_PROMPT = "2"
+VERSAO_PROMPT = "3"
 
 SISTEMA = """Você investiga um achado de análise estática e devolve EVIDÊNCIA.
 
@@ -81,7 +81,13 @@ FERRAMENTAS = (
             "properties": {
                 "entrada_controlavel": {"enum": ["sim", "nao", "nao_sei"]},
                 "sanitizacao_encontrada": {"enum": ["sim", "nao", "nao_sei"]},
-                "prova": {"type": "string", "description": "arquivo:linha"},
+                # Aceita null: o provedor valida a chamada contra este schema no
+                # servidor, e o modelo manda `null` em vez de omitir a chave quando
+                # nao tem prova. Recusado, isso vira 400 e derruba a analise inteira.
+                "prova": {
+                    "type": ["string", "null"],
+                    "description": "arquivo:linha",
+                },
                 "raciocinio": {"type": "string"},
             },
             "required": ["entrada_controlavel", "sanitizacao_encontrada"],

@@ -4,7 +4,7 @@ from dubles import ClienteFalso, ClienteQueFalha
 
 from pra.agente.ferramentas import Caixa
 from pra.agente.loop import PASSOS_MAX, investigar
-from pra.agente.prompt import ABERTURA, FECHAMENTO
+from pra.agente.prompt import ABERTURA, FECHAMENTO, FERRAMENTAS
 from pra.llm.cliente import Chamada, CotaEsgotada, RespostaLLM
 from pra.modelos import Achado, Resposta, Severidade
 
@@ -237,3 +237,18 @@ def test_a_janela_gratuita_tambem_vem_envelopada(tmp_path):
     do_usuario = next(m for m in cliente.conversas[0] if m["role"] == "user")
     assert ABERTURA in do_usuario["content"]
     assert do_usuario["content"].rstrip().endswith(FECHAMENTO)
+
+
+def test_o_schema_do_concluir_aceita_prova_nula():
+    """O provedor valida a chamada contra este schema NO SERVIDOR.
+
+    Sem `null` aqui, o modelo que manda `prova: null` — em vez de omitir a
+    chave — leva 400, e um 400 não repete: derruba a análise inteira e, no
+    corpus, joga fora a cota já gasta nos casos anteriores.
+    """
+    concluir_ = next(f for f in FERRAMENTAS if f.nome == "concluir")
+    tipo = concluir_.parametros["properties"]["prova"]["type"]
+
+    assert "null" in tipo
+    assert "string" in tipo
+    assert "prova" not in concluir_.parametros["required"]
