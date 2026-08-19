@@ -52,7 +52,11 @@ def _responder(monkeypatch, *respostas):
     chamadas = []
 
     def post(*args, **kwargs):
-        chamadas.append(kwargs.get("json"))
+        # Cópia, não referência: o cliente reusa e MUTA o mesmo dicionário entre
+        # tentativas (a reamostragem mexe no `seed`). Guardando a referência,
+        # toda entrada mostraria o valor final e nenhum teste conseguiria
+        # comparar duas requisições.
+        chamadas.append(dict(kwargs.get("json") or {}))
         return fila.pop(0) if len(fila) > 1 else fila[0]
 
     monkeypatch.setattr("pra.llm.groq.requests.post", post)
@@ -201,3 +205,49 @@ def test_o_corpo_desliga_chamada_paralela(monkeypatch):
     chamadas = _responder(monkeypatch, RespostaFalsa(200, _corpo_com_chamada()))
     cliente().conversar([], (FERRAMENTA,))
     assert chamadas[0]["parallel_tool_calls"] is False
+
+
+def _erro(mensagem):
+    return {"error": {"message": mensagem}}
+
+
+def test_geracao_malformada_e_reamostrada_com_semente_nova(monkeypatch):
+    """400 de geração ruim é o único 4xx que melhora tentando de novo.
+
+    Mas só se a amostragem mudar: com `temperature: 0` e `seed` fixo, repetir
+    a mesma requisição devolve a mesma saída malformada e queima cota.
+    """
+    chamadas = _responder(
+        monkeypatch,
+        RespostaFalsa(400, _erro("Parsing failed. The model generated output...")),
+        RespostaFalsa(200, _corpo_com_chamada()),
+    )
+    resposta = cliente().conversar([], (FERRAMENTA,))
+
+    assert resposta.chamadas[0].nome == "buscar"
+    assert chamadas[1]["seed"] != chamadas[0]["seed"]
+
+
+def test_ferramenta_inventada_pelo_modelo_tambem_reamostra(monkeypatch):
+    chamadas = _responder(
+        monkeypatch,
+        RespostaFalsa(400, _erro("Tool call validation failed: attempted to call tool 'json'")),
+        RespostaFalsa(200, _corpo_com_chamada()),
+    )
+    cliente().conversar([], (FERRAMENTA,))
+    assert len(chamadas) == 2
+
+
+def test_geracao_ruim_persistente_desiste_como_provedor_indisponivel(monkeypatch):
+    """A reamostragem é a primeira linha; o isolamento por achado é a rede."""
+    _responder(monkeypatch, RespostaFalsa(400, _erro("Parsing failed")))
+    with pytest.raises(ProvedorIndisponivel):
+        cliente().conversar([], (FERRAMENTA,))
+
+
+def test_400_que_nao_e_de_geracao_nao_reamostra(monkeypatch):
+    """Requisição malformada não melhora reamostrando — só gasta cota."""
+    chamadas = _responder(monkeypatch, RespostaFalsa(400, _erro("model not found")))
+    with pytest.raises(ProvedorIndisponivel):
+        cliente().conversar([], (FERRAMENTA,))
+    assert len(chamadas) == 1

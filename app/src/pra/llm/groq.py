@@ -38,6 +38,15 @@ ESPERA_MAX_S = 20
 # degrada, que bloqueia igual.
 MARCAS_DE_COTA_DIARIA = ("per day", "daily", "tokens per day")
 
+# 400 de geração ruim: o modelo produziu saída que o provedor não conseguiu
+# parsear, ou pediu ferramenta fora das que mandamos. É falha de amostra, não
+# de requisição — e é a única família de 4xx que reamostrar resolve.
+MARCAS_DE_GERACAO_RUIM = (
+    "failed_generation",
+    "parsing failed",
+    "tool call validation failed",
+)
+
 LIMITE_MENSAGEM = 200
 
 
@@ -94,9 +103,19 @@ class ClienteGroq:
             if resposta.status_code == 429:
                 if _e_cota_diaria(resposta):
                     raise CotaEsgotada(ultimo)
+            elif resposta.status_code == 400 and _e_geracao_ruim(resposta):
+                # O único 4xx que melhora tentando de novo — e só se a
+                # amostragem mudar: com `temperature: 0` e `seed` fixo, repetir
+                # a mesma requisição devolve a mesma saída malformada e queima
+                # cota por nada. Sem espera, porque o problema é a amostra e não
+                # o ritmo. Medido em 18/08/2026: ~11% das investigações do
+                # corpus levavam 400 assim, o bastante para o placar medir a
+                # geração estruturada do provedor em vez do agente.
+                corpo["seed"] += 1
+                continue
             elif resposta.status_code < 500:
-                # 401, 400, 404: nenhum melhora com espera, e cada tentativa
-                # custa tempo de Lambda.
+                # 401, 404 e o 400 de requisição malformada: nenhum melhora com
+                # espera, e cada tentativa custa tempo de Lambda.
                 raise ProvedorIndisponivel(ultimo)
 
             _esperar(tentativa, resposta)
@@ -139,6 +158,11 @@ def _mensagem(resposta: requests.Response) -> str:
         return str(resposta.json().get("error", {}).get("message", ""))[:LIMITE_MENSAGEM]
     except ValueError:
         return ""
+
+
+def _e_geracao_ruim(resposta: requests.Response) -> bool:
+    texto = _mensagem(resposta).lower()
+    return any(marca in texto for marca in MARCAS_DE_GERACAO_RUIM)
 
 
 def _e_cota_diaria(resposta: requests.Response) -> bool:
