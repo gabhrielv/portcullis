@@ -132,8 +132,14 @@ class Caixa:
         """
         if not prova or ":" not in prova:
             return False
-        caminho, _, numero = prova.rpartition(":")
-        if not numero.isdigit():
+        caminho, _, faixa = prova.rpartition(":")
+        # Faixa (`6-7`) vale tanto quanto linha única: sanitização que ocupa
+        # duas linhas — o `if` e o `abort` — é citada assim, e recusar por
+        # formato descartava prova CORRETA. Medido no `sanitizacao-distante`.
+        # Conferir endereço e não semântica já é limitação conhecida; o formato
+        # do endereço não precisa somar-se a ela.
+        numeros = faixa.split("-")
+        if len(numeros) > 2 or not all(n.isdigit() for n in numeros):
             return False
         try:
             alvo = self._resolver(caminho)
@@ -142,4 +148,4 @@ class Caixa:
         if not alvo.is_file():
             return False
         total = len(alvo.read_text(errors="replace").splitlines())
-        return 1 <= int(numero) <= total
+        return all(1 <= int(n) <= total for n in numeros)

@@ -172,6 +172,30 @@ def test_prova_valida_confere_arquivo_e_linha(raiz):
     assert caixa.prova_valida("app/db.py:2") is True
 
 
+def test_prova_em_faixa_de_linhas_vale(raiz):
+    """Sanitização que ocupa duas linhas — o `if` e o `abort` — é citada assim.
+
+    Recusar por formato descartava prova CORRETA: medido no
+    `sanitizacao-distante`, onde o endereço apontava para o lugar certo e o
+    acerto virou erro.
+    """
+    assert Caixa(raiz).prova_valida("app/db.py:1-2") is True
+
+
+def test_faixa_que_estoura_o_arquivo_nao_vale(raiz):
+    """Aceitar faixa não pode virar porta para endereço inventado."""
+    caixa = Caixa(raiz)
+    assert caixa.prova_valida("app/db.py:1-9999") is False
+    assert caixa.prova_valida("app/db.py:0-2") is False
+
+
+def test_faixa_malformada_nao_vale(raiz):
+    caixa = Caixa(raiz)
+    assert caixa.prova_valida("app/db.py:1-2-3") is False
+    assert caixa.prova_valida("app/db.py:1-") is False
+    assert caixa.prova_valida("app/db.py:-2") is False
+
+
 def test_prova_com_linha_alem_do_fim_do_arquivo_nao_vale(raiz):
     assert Caixa(raiz).prova_valida("app/db.py:9999") is False
 
