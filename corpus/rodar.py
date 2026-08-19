@@ -118,7 +118,10 @@ def rodar(entradas: list[dict], cliente, repeticoes: int) -> tuple[list[dict], s
 
 def _gravar(linhas: list[dict], modelo: str) -> Path:
     PLACARES.mkdir(exist_ok=True)
-    destino = PLACARES / f"{VERSAO_PROMPT}-{modelo}-{time.strftime('%Y%m%d-%H%M%S')}.json"
+    # O nome do modelo vem com barra (`openai/gpt-oss-120b`), que viraria
+    # subpasta inexistente e derrubaria a gravação DEPOIS de a cota ser gasta.
+    seguro = modelo.replace("/", "-")
+    destino = PLACARES / f"{VERSAO_PROMPT}-{seguro}-{time.strftime('%Y%m%d-%H%M%S')}.json"
     destino.write_text(
         json.dumps(
             {"versao_prompt": VERSAO_PROMPT, "modelo": modelo, "linhas": linhas}, indent=2
