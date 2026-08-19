@@ -31,6 +31,10 @@ ESPERA_BASE_S = 2
 # A Lambda tem dez minutos no total. Dormir mais que isto dentro dela é queimar
 # o orçamento da análise inteira para acordar e falhar do mesmo jeito.
 ESPERA_MAX_S = 20
+# Teto do TOTAL esperado por teto-por-minuto numa chamada. A Lambda tem dez
+# minutos para a analise inteira; dormir mais que isto numa pergunta so' e'
+# queimar o orcamento das outras.
+TETO_ESPERA_TPM_S = 120
 
 # A cota diária e o teto por minuto chegam os dois como 429, e só o segundo
 # melhora com espera. A distinção sai do texto da mensagem, que é frágil — mas
@@ -82,7 +86,10 @@ class ClienteGroq:
         }
 
         ultimo = "sem resposta"
-        for tentativa in range(TENTATIVAS):
+        tentativa = 0
+        espera_tpm = 0.0
+
+        while tentativa < TENTATIVAS:
             try:
                 resposta = requests.post(
                     URL,
@@ -93,6 +100,7 @@ class ClienteGroq:
             except requests.RequestException as erro:
                 ultimo = f"{type(erro).__name__}"
                 _esperar(tentativa, None)
+                tentativa += 1
                 continue
 
             if resposta.status_code < 400:
@@ -103,6 +111,24 @@ class ClienteGroq:
             if resposta.status_code == 429:
                 if _e_cota_diaria(resposta):
                     raise CotaEsgotada(ultimo)
+                # Teto por minuto não é falha, é ritmo: o balde enche em
+                # segundos e o provedor diz quanto esperar. Por isso esperar
+                # NÃO consome tentativa — contando, três rajadas seguidas
+                # viravam `ProvedorIndisponivel`, que o isolamento converte em
+                # `nao_sei`, indistinguível de um agente que investigou e não
+                # concluiu. Foi assim que o corpus mediu rate limit achando que
+                # media raciocínio (18/08/2026).
+                #
+                # O teto é do TOTAL esperado nesta chamada, não de cada espera:
+                # o que não pode é a Lambda dormir o orçamento da análise.
+                espera = _retry_after(resposta) or ESPERA_BASE_S
+                espera_tpm += espera
+                if espera_tpm > TETO_ESPERA_TPM_S:
+                    raise ProvedorIndisponivel(
+                        f"esperei {espera_tpm:.0f}s de teto por minuto sem passar — {ultimo}"
+                    )
+                time.sleep(espera)
+                continue
             elif resposta.status_code == 400 and _e_geracao_ruim(resposta):
                 # O único 4xx que melhora tentando de novo — e só se a
                 # amostragem mudar: com `temperature: 0` e `seed` fixo, repetir
@@ -112,6 +138,7 @@ class ClienteGroq:
                 # corpus levavam 400 assim, o bastante para o placar medir a
                 # geração estruturada do provedor em vez do agente.
                 corpo["seed"] += 1
+                tentativa += 1
                 continue
             elif resposta.status_code < 500:
                 # 401, 404 e o 400 de requisição malformada: nenhum melhora com
@@ -119,6 +146,7 @@ class ClienteGroq:
                 raise ProvedorIndisponivel(ultimo)
 
             _esperar(tentativa, resposta)
+            tentativa += 1
 
         raise ProvedorIndisponivel(f"desisti depois de {TENTATIVAS} tentativas — {ultimo}")
 

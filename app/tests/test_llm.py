@@ -9,7 +9,7 @@ from pra.llm.cliente import (
     ProvedorIndisponivel,
     RespostaLLM,
 )
-from pra.llm.groq import ESPERA_MAX_S, TENTATIVAS, ClienteGroq
+from pra.llm.groq import TENTATIVAS, TETO_ESPERA_TPM_S, ClienteGroq
 
 FERRAMENTA = Ferramenta(nome="buscar", descricao="acha termos", parametros={})
 
@@ -122,15 +122,33 @@ def test_429_por_minuto_tenta_de_novo_e_da_certo(monkeypatch):
     assert cliente().conversar([], (FERRAMENTA,)).tokens == 812
 
 
-def test_retry_after_longo_demais_desiste_em_vez_de_dormir(monkeypatch):
-    # A Lambda tem dez minutos no total. Dormir uma hora dentro dela é queimar
-    # o orçamento inteiro para acordar e falhar do mesmo jeito.
+def test_teto_por_minuto_nao_consome_tentativa(monkeypatch):
+    """Esperar o balde encher não é fracassar.
+
+    Contando como tentativa, três rajadas seguidas viravam
+    `ProvedorIndisponivel` — que o isolamento converte em `nao_sei`,
+    indistinguível de um agente que investigou e não concluiu. Aqui há mais
+    429 que TENTATIVAS, e ainda assim tem que dar certo.
+    """
+    corpo429 = {"error": {"message": "Rate limit reached, limit per minute"}}
+    chamadas = _responder(
+        monkeypatch,
+        *([RespostaFalsa(429, corpo429, {"Retry-After": "1"})] * (TENTATIVAS + 2)),
+        RespostaFalsa(200, _corpo_com_chamada()),
+    )
+    assert cliente().conversar([], (FERRAMENTA,)).tokens == 812
+    assert len(chamadas) == TENTATIVAS + 3
+
+
+def test_espera_total_de_teto_por_minuto_tem_limite(monkeypatch):
+    """A Lambda tem dez minutos para a análise inteira. Uma pergunta não pode
+    dormir o orçamento das outras — o teto é do TOTAL, não de cada espera."""
     corpo429 = {"error": {"message": "Rate limit reached, limit per minute"}}
     _responder(
         monkeypatch,
-        RespostaFalsa(429, corpo429, {"Retry-After": str(ESPERA_MAX_S + 1)}),
+        RespostaFalsa(429, corpo429, {"Retry-After": str(TETO_ESPERA_TPM_S + 1)}),
     )
-    with pytest.raises(ProvedorIndisponivel, match="Retry-After"):
+    with pytest.raises(ProvedorIndisponivel, match="teto por minuto"):
         cliente().conversar([], (FERRAMENTA,))
 
 
