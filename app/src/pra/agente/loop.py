@@ -14,7 +14,7 @@ import logging
 
 from pra.agente.ferramentas import Caixa
 from pra.agente.prompt import FERRAMENTAS, SISTEMA, envelopar, primeira_mensagem
-from pra.llm.cliente import Chamada, ClienteLLM
+from pra.llm.cliente import Chamada, ClienteLLM, ProvedorIndisponivel
 from pra.modelos import Achado, Evidencia, Resposta, chave_do_achado
 
 logger = logging.getLogger(__name__)
@@ -125,7 +125,21 @@ def investigar(achado: Achado, caixa: Caixa, cliente: ClienteLLM) -> Evidencia:
 
     tokens = 0
     for passo in range(1, PASSOS_MAX + 1):
-        resposta = cliente.conversar(mensagens, FERRAMENTAS)
+        try:
+            resposta = cliente.conversar(mensagens, FERRAMENTAS)
+        except ProvedorIndisponivel as falha:
+            # Isolado NESTE achado. O provedor valida a chamada de ferramenta no
+            # servidor e recusa geração malformada com 400, que não repete —
+            # deixar subir descartaria as investigações que já deram certo e
+            # degradaria a análise inteira por causa de um achado. Isolar não
+            # afrouxa nada: `nao_sei` bloqueia (G13).
+            #
+            # `CotaEsgotada` não entra aqui de propósito: ela é a degradação de
+            # verdade, e precisa subir para acender o alarme (D17).
+            logger.warning("provedor recusou no passo %s: %s", passo, falha)
+            motivo = f"provedor recusou a chamada: {falha}"[:TETO_RACIOCINIO]
+            return _sem_conclusao(achado, passo, tokens, motivo)
+
         tokens += resposta.tokens
 
         if not resposta.chamadas:

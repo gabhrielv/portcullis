@@ -5,7 +5,7 @@ from dubles import ClienteFalso, ClienteQueFalha
 from pra.agente.ferramentas import Caixa
 from pra.agente.loop import PASSOS_MAX, investigar
 from pra.agente.prompt import ABERTURA, FECHAMENTO, FERRAMENTAS
-from pra.llm.cliente import Chamada, CotaEsgotada, RespostaLLM
+from pra.llm.cliente import Chamada, CotaEsgotada, ProvedorIndisponivel, RespostaLLM
 from pra.modelos import Achado, Resposta, Severidade
 
 ARQUIVO = "app/db.py"
@@ -252,3 +252,17 @@ def test_o_schema_do_concluir_aceita_prova_nula():
     assert "null" in tipo
     assert "string" in tipo
     assert "prova" not in concluir_.parametros["required"]
+
+
+def test_provedor_que_recusa_a_chamada_vira_nao_sei_so_neste_achado(tmp_path):
+    """400 de geração malformada não pode derrubar a análise inteira.
+
+    Deixar subir descartaria as evidências já coletadas dos outros achados e
+    degradaria tudo. Isolar aqui não afrouxa: `nao_sei` bloqueia.
+    """
+    cliente = ClienteQueFalha(ProvedorIndisponivel("400: Parsing failed"))
+    e = investigar(achado(), caixa(tmp_path), cliente)
+
+    assert e.entrada_controlavel is Resposta.NAO_SEI
+    assert e.sanitizacao_encontrada is Resposta.NAO_SEI
+    assert "Parsing failed" in e.raciocinio
