@@ -22,7 +22,7 @@ PRA_REGRAS := $(CURDIR)/$(DIR_REGRAS)/default.yaml,$(CURDIR)/$(DIR_REGRAS)/secur
 
 .PHONY: instalar teste teste-integracao lint regras imagem imagem-push subir \
         pacote-lambda validar-infra infra url-webhook destruir corpus-congelar \
-        corpus corpus-continuar
+        corpus corpus-continuar destruir-sem-perguntar
 
 .venv:
 	python3 -m venv .venv
@@ -115,6 +115,12 @@ url-webhook:
 
 destruir:
 	cd infra && $(TF) destroy
+
+# Toda sessão termina em `destruir`, e o alvo acima pergunta antes — o que trava
+# sem terminal, sem imprimir nada. A diferença entre "destruí" e "achei que
+# tinha destruído" é o custo correndo a noite inteira, então automação usa este.
+destruir-sem-perguntar:
+	cd infra && $(TF) destroy -auto-approve
 
 # A imagem precisa estar no ECR antes de a Lambda de container ser criada.
 imagem-push: imagem
