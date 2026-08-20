@@ -251,3 +251,71 @@ def test_handler_usa_tmp_que_e_o_unico_lugar_gravavel_da_lambda(tmp_path, monkey
     )
 
     assert all(caminho.startswith("/tmp") for caminho in usados), usados
+
+# --- Checkov ----------------------------------------------------------------
+
+
+def _semgrep_vazio(*_a, **_k):
+    return SaidaSemgrep(achados=(), hash_regras="abc123")
+
+
+def _iac(achados=(), versao="3.3.13"):
+    from pra.analisador.checkov import SaidaCheckov
+
+    return SaidaCheckov(achados=tuple(achados), versao=versao)
+
+
+def test_repo_sem_terraform_nao_paga_o_checkov(tmp_path, monkeypatch):
+    """O pacote do teste só tem `app.py`. Rodar o Checkov ali é gastar tempo
+    para ele não achar arquivo nenhum."""
+    chamou = []
+    monkeypatch.setattr(
+        analisador, "rodar_checkov", lambda *a, **k: chamou.append(1) or _iac()
+    )
+    executar(tmp_path, monkeypatch, _semgrep_vazio)
+    assert chamou == []
+
+
+def test_achados_dos_dois_scanners_entram_na_mesma_lista(tmp_path, monkeypatch):
+    """A `regra.py` não sabe qual scanner produziu o quê, e não precisa."""
+    iac = Achado(
+        regra="CKV_AWS_26",
+        severidade=Severidade.ERRO,
+        caminho="infra/main.tf",
+        linha_inicio=3,
+        linha_fim=5,
+        mensagem="SNS sem criptografia",
+        categoria="iac",
+    )
+    monkeypatch.setattr(analisador, "tem_terraform", lambda _r: True)
+    monkeypatch.setattr(analisador, "rodar_checkov", lambda *a, **k: _iac([iac]))
+
+    dados = executar(tmp_path, monkeypatch, _semgrep_vazio)
+    assert [a["regra"] for a in dados["achados"]] == ["CKV_AWS_26"]
+
+
+def test_a_versao_do_checkov_entra_na_impressao_digital(tmp_path, monkeypatch):
+    """Sem ela, atualizar o scanner fica indistinguível de mudar o agente —
+    o mesmo motivo que a D11 dá para o hash das regras do semgrep."""
+    monkeypatch.setattr(analisador, "tem_terraform", lambda _r: True)
+    monkeypatch.setattr(analisador, "rodar_checkov", lambda *a, **k: _iac())
+
+    dados = executar(tmp_path, monkeypatch, _semgrep_vazio)
+    assert dados["hash_regras"] == "abc123+checkov3.3.13"
+
+
+def test_checkov_que_falha_nao_derruba_a_analise(tmp_path, monkeypatch):
+    """O semgrep já rodou. Perder o resultado dele porque o Checkov tropeçou
+    seria trocar análise parcial por nenhuma — e análise nenhuma trava o PR
+    sem dizer por quê."""
+    from pra.analisador.checkov import CheckovFalhou as Falhou
+
+    def explode(*_a, **_k):
+        raise Falhou("checkov não está instalado na imagem")
+
+    monkeypatch.setattr(analisador, "tem_terraform", lambda _r: True)
+    monkeypatch.setattr(analisador, "rodar_checkov", explode)
+
+    dados = executar(tmp_path, monkeypatch, _semgrep_vazio)
+    assert dados["ok"] is True
+    assert any("checkov" in str(e) for e in dados["erros_de_analise"])

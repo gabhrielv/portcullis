@@ -15,6 +15,8 @@ import tempfile
 from functools import cache
 from pathlib import Path
 
+from pra.analisador.checkov import CheckovFalhou, tem_terraform
+from pra.analisador.checkov import rodar as rodar_checkov
 from pra.analisador.pacote import (
     NOME_ACHADOS,
     NOME_CODIGO,
@@ -73,11 +75,32 @@ def analisar(dir_entrada: Path, dir_saida: Path) -> Path:
             (raiz / ".semgrepignore").write_text("")
 
             saida = rodar(raiz)
+            achados = list(saida.achados)
+            erros = list(saida.erros)
+            impressao = saida.hash_regras
+
+            # O Checkov só roda onde há Terraform. Repositório sem IaC não
+            # paga o tempo dele, e repositório misto ganha os dois scanners
+            # sem configuração nenhuma — a config por repo é a D18, marco 4.
+            if tem_terraform(raiz):
+                try:
+                    iac = rodar_checkov(raiz)
+                    achados += list(iac.achados)
+                    # A versão entra na impressão digital junto com o hash das
+                    # regras: sem ela, atualizar o scanner ficaria
+                    # indistinguível de mudar o agente. Mesmo motivo da D11.
+                    impressao = f"{impressao}+checkov{iac.versao}"
+                except CheckovFalhou as falha:
+                    # Não derruba a análise: o Semgrep já rodou, e perder o
+                    # resultado dele porque o Checkov tropeçou seria trocar
+                    # uma análise parcial por nenhuma. O erro fica registrado.
+                    erros.append({"scanner": "checkov", "erro": str(falha)})
+
             resultado |= {
                 "ok": True,
-                "hash_regras": saida.hash_regras,
-                "achados": [_serializar(a, raiz) for a in saida.achados],
-                "erros_de_analise": list(saida.erros),
+                "hash_regras": impressao,
+                "achados": [_serializar(a, raiz) for a in achados],
+                "erros_de_analise": erros,
             }
     except Exception as falha:  # noqa: BLE001
         # Blind except de propósito: este é o ponto mais externo do processo.
