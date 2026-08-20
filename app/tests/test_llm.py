@@ -269,3 +269,24 @@ def test_400_que_nao_e_de_geracao_nao_reamostra(monkeypatch):
     with pytest.raises(ProvedorIndisponivel):
         cliente().conversar([], (FERRAMENTA,))
     assert len(chamadas) == 1
+
+
+def test_toda_redacao_conhecida_de_geracao_ruim_reamostra(monkeypatch):
+    """A lista de marcas nasceu incompleta e custou um caso do corpus.
+
+    As quatro redações abaixo saíram de execuções reais e são a MESMA falha:
+    o modelo gerou algo que o provedor não conseguiu transformar em chamada.
+    """
+    for texto in (
+        "Parsing failed. The model generated output that could not be parsed.",
+        "Failed to parse tool call arguments as JSON",
+        "Tool call validation failed: attempted to call tool 'json'",
+        "tool call validation failed: parameters for tool concluir did not match",
+    ):
+        chamadas = _responder(
+            monkeypatch,
+            RespostaFalsa(400, _erro(texto)),
+            RespostaFalsa(200, _corpo_com_chamada()),
+        )
+        assert cliente().conversar([], (FERRAMENTA,)).tokens == 812, texto
+        assert len(chamadas) == 2, texto

@@ -116,7 +116,35 @@ def rodar(entradas: list[dict], cliente, repeticoes: int) -> tuple[list[dict], s
     return linhas, None
 
 
-def _gravar(linhas: list[dict], modelo: str) -> Path:
+def medidos_antes(modelo: str, repeticoes: int) -> dict[str, dict]:
+    """Casos já medidos em execuções anteriores da MESMA configuração.
+
+    O aceite da D28 custa mais tokens do que o teto diário do provedor permite,
+    então ele precisa caber em duas sentadas. Só que juntar medições de prompts
+    ou modelos diferentes produziria um placar que não corresponde a nenhuma das
+    configurações — por isso o casamento é exato nos três eixos, e o número de
+    repetições entra: metade medida 1x e metade 3x não é um aceite com 3.
+
+    Arquivo mais recente vence, para uma remedição de caso valer sobre a antiga.
+    """
+    medidos: dict[str, dict] = {}
+    for arquivo in sorted(PLACARES.glob("*.json")) if PLACARES.is_dir() else []:
+        try:
+            dados = json.loads(arquivo.read_text())
+        except ValueError:
+            continue
+        if (
+            dados.get("versao_prompt") != VERSAO_PROMPT
+            or dados.get("modelo") != modelo
+            or dados.get("repeticoes") != repeticoes
+        ):
+            continue
+        for linha in dados.get("linhas", []):
+            medidos[linha["id"]] = linha
+    return medidos
+
+
+def _gravar(linhas: list[dict], modelo: str, repeticoes: int) -> Path:
     PLACARES.mkdir(exist_ok=True)
     # O nome do modelo vem com barra (`openai/gpt-oss-120b`), que viraria
     # subpasta inexistente e derrubaria a gravação DEPOIS de a cota ser gasta.
@@ -124,7 +152,13 @@ def _gravar(linhas: list[dict], modelo: str) -> Path:
     destino = PLACARES / f"{VERSAO_PROMPT}-{seguro}-{time.strftime('%Y%m%d-%H%M%S')}.json"
     destino.write_text(
         json.dumps(
-            {"versao_prompt": VERSAO_PROMPT, "modelo": modelo, "linhas": linhas}, indent=2
+            {
+                "versao_prompt": VERSAO_PROMPT,
+                "modelo": modelo,
+                "repeticoes": repeticoes,
+                "linhas": linhas,
+            },
+            indent=2,
         )
     )
     return destino
@@ -139,6 +173,11 @@ def principal(argumentos: list[str]) -> int:
         default=1,
         help="execuções por caso que mede (falso-positivo e armadilha). O aceite roda 3",
     )
+    analisador.add_argument(
+        "--continuar",
+        action="store_true",
+        help="reaproveita casos já medidos na mesma versão de prompt, modelo e repetições",
+    )
     opcoes = analisador.parse_args(argumentos)
 
     entradas = [e for e in ler_gabarito() if not opcoes.ids or e["id"] in opcoes.ids]
@@ -150,15 +189,27 @@ def principal(argumentos: list[str]) -> int:
         parametro_ssm(obrigatoria("PRA_PARAM_CHAVE_LLM")),
         parametro_ssm(obrigatoria("PRA_PARAM_MODELO_LLM")),
     )
-    linhas, interrompido = rodar(entradas, cliente, max(1, opcoes.repeticoes))
+    repeticoes = max(1, opcoes.repeticoes)
+    antes = medidos_antes(cliente.modelo, repeticoes) if opcoes.continuar else {}
+    pendentes = [e for e in entradas if e["id"] not in antes]
+    if antes:
+        print(f"reaproveitando {len(antes)} caso(s) já medidos; faltam {len(pendentes)}")
+
+    novas, interrompido = rodar(pendentes, cliente, repeticoes)
+
+    # Reordenado pelo gabarito: o placar por dificuldade e por escala fica
+    # igual ao de uma execução única, venha a linha de onde vier.
+    por_id = {linha["id"]: linha for linha in novas} | antes
+    linhas = [por_id[e["id"]] for e in entradas if e["id"] in por_id]
 
     if linhas:
         print(render(linhas, entradas))
-        print(f"gravado em {_gravar(linhas, cliente.modelo)}")
+        print(f"gravado em {_gravar(linhas, cliente.modelo, repeticoes)}")
 
     if interrompido:
         print(
-            f"\nINTERROMPIDO em {len(linhas)}/{len(entradas)} casos: {interrompido}",
+            f"\nINTERROMPIDO em {len(linhas)}/{len(entradas)} casos: {interrompido}"
+            "\nRode de novo com --continuar quando a cota voltar.",
             file=sys.stderr,
         )
         return 1

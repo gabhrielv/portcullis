@@ -1,6 +1,9 @@
 """A pontuação do corpus. Ela é o critério de aceite de qualquer mexida no
 prompt ou no modelo — errar aqui reporta um número bonito sem avisar."""
 
+import json
+
+import rodar
 from placar import (
     FRACAO_RUIDO,
     aceite,
@@ -278,3 +281,82 @@ def test_agente_que_cala_tudo_pelo_motivo_errado_reprova():
     passou, reprovou = aceite(linhas, entradas)
     assert passou is False
     assert any("motivo certo" in m for m in reprovou)
+
+
+# --- retomada do aceite ------------------------------------------------------
+#
+# O aceite da D28 custa mais tokens que o teto diário do provedor permite, então
+# ele precisa caber em duas sentadas. O risco de juntar é medir uma coisa e
+# reportar outra: por isso o casamento é exato nos três eixos.
+
+def _placar(tmp_path, nome, *, versao, modelo, repeticoes, ids):
+    destino = tmp_path / nome
+    destino.write_text(
+        json.dumps(
+            {
+                "versao_prompt": versao,
+                "modelo": modelo,
+                "repeticoes": repeticoes,
+                "linhas": [{"id": i} for i in ids],
+            }
+        )
+    )
+    return destino
+
+
+def test_retomada_reaproveita_a_mesma_configuracao(tmp_path, monkeypatch):
+    monkeypatch.setattr(rodar, "PLACARES", tmp_path)
+    _placar(tmp_path, "a.json", versao=rodar.VERSAO_PROMPT, modelo="m", repeticoes=3,
+            ids=["sqli-direto", "morto-mas-novo"])
+
+    assert set(rodar.medidos_antes("m", 3)) == {"sqli-direto", "morto-mas-novo"}
+
+
+def test_retomada_ignora_versao_de_prompt_diferente(tmp_path, monkeypatch):
+    """Prompt diferente é agente diferente. Juntar produziria um placar que não
+    corresponde a nenhuma das duas versões."""
+    monkeypatch.setattr(rodar, "PLACARES", tmp_path)
+    _placar(tmp_path, "a.json", versao="0", modelo="m", repeticoes=3, ids=["sqli-direto"])
+
+    assert rodar.medidos_antes("m", 3) == {}
+
+
+def test_retomada_ignora_modelo_diferente(tmp_path, monkeypatch):
+    monkeypatch.setattr(rodar, "PLACARES", tmp_path)
+    _placar(tmp_path, "a.json", versao=rodar.VERSAO_PROMPT, modelo="outro",
+            repeticoes=3, ids=["sqli-direto"])
+
+    assert rodar.medidos_antes("m", 3) == {}
+
+
+def test_retomada_ignora_numero_de_repeticoes_diferente(tmp_path, monkeypatch):
+    """Metade medida 1x e metade 3x não é um aceite com 3."""
+    monkeypatch.setattr(rodar, "PLACARES", tmp_path)
+    _placar(tmp_path, "a.json", versao=rodar.VERSAO_PROMPT, modelo="m", repeticoes=1,
+            ids=["sqli-direto"])
+
+    assert rodar.medidos_antes("m", 3) == {}
+
+
+def test_retomada_deixa_o_arquivo_mais_recente_vencer(tmp_path, monkeypatch):
+    """Remedir um caso tem de valer sobre a medição antiga dele."""
+    monkeypatch.setattr(rodar, "PLACARES", tmp_path)
+    for nome, marca in (("5-m-20260101-000000.json", "velho"),
+                        ("5-m-20260102-000000.json", "novo")):
+        (tmp_path / nome).write_text(
+            json.dumps({"versao_prompt": rodar.VERSAO_PROMPT, "modelo": "m",
+                        "repeticoes": 3,
+                        "linhas": [{"id": "sqli-direto", "marca": marca}]})
+        )
+
+    assert rodar.medidos_antes("m", 3)["sqli-direto"]["marca"] == "novo"
+
+
+def test_retomada_ignora_placar_corrompido(tmp_path, monkeypatch):
+    """Arquivo truncado por execução morta no meio não pode derrubar a retomada."""
+    monkeypatch.setattr(rodar, "PLACARES", tmp_path)
+    (tmp_path / "quebrado.json").write_text("{ nao e json")
+    _placar(tmp_path, "b.json", versao=rodar.VERSAO_PROMPT, modelo="m", repeticoes=3,
+            ids=["sqli-direto"])
+
+    assert set(rodar.medidos_antes("m", 3)) == {"sqli-direto"}

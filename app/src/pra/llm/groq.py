@@ -45,10 +45,17 @@ MARCAS_DE_COTA_DIARIA = ("per day", "daily", "tokens per day")
 # 400 de geração ruim: o modelo produziu saída que o provedor não conseguiu
 # parsear, ou pediu ferramenta fora das que mandamos. É falha de amostra, não
 # de requisição — e é a única família de 4xx que reamostrar resolve.
+#
+# A lista nasceu com três marcas e deixou passar uma quarta redação da MESMA
+# falha ("Failed to parse tool call arguments as JSON"), que virou `nao_sei` e
+# custou um caso do corpus. Errar para o lado de reamostrar é barato: um 400
+# que não era de geração gasta duas tentativas a mais e falha igual.
 MARCAS_DE_GERACAO_RUIM = (
     "failed_generation",
     "parsing failed",
+    "failed to parse",
     "tool call validation failed",
+    "attempted to call tool",
 )
 
 LIMITE_MENSAGEM = 200
