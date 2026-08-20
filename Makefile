@@ -22,7 +22,7 @@ PRA_REGRAS := $(CURDIR)/$(DIR_REGRAS)/default.yaml,$(CURDIR)/$(DIR_REGRAS)/secur
 
 .PHONY: instalar teste teste-integracao lint regras imagem imagem-push subir \
         pacote-lambda validar-infra infra url-webhook destruir corpus-congelar \
-        corpus
+        corpus corpus-continuar
 
 .venv:
 	python3 -m venv .venv
@@ -55,6 +55,13 @@ corpus-congelar: $(MARCA) $(REGRAS)
 # Gasta cota do provedor e lê a chave do SSM, por isso fica fora do `make teste`.
 corpus: $(MARCA)
 	$(PY) corpus/rodar.py --repeticoes $(REPETICOES) $(CASO)
+
+# O aceite com REPETICOES=3 custa ~237K tokens e o teto diário do provedor é
+# 200.000: ele não cabe numa sentada só. Este alvo retoma de onde parou,
+# reaproveitando o que já foi medido na MESMA versão de prompt, modelo e
+# número de repetições.
+corpus-continuar: $(MARCA)
+	$(PY) corpus/rodar.py --repeticoes $(REPETICOES) --continuar $(CASO)
 
 teste-integracao: $(MARCA) $(REGRAS)
 	cd app && PRA_REGRAS="$(PRA_REGRAS)" ../$(PY) -m pytest -v -m integracao
