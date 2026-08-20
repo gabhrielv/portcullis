@@ -26,6 +26,12 @@ TETO_TOKENS = 40_000
 
 TETO_RACIOCINIO = 500
 
+# A investigadora precisa distinguir "o agente investigou e nao concluiu" de
+# "o provedor recusou": o segundo, acontecendo em TODO achado, e' queda de
+# provedor e tem de acender o alarme da D17. Constante para nao virar
+# comparacao de string solta em dois arquivos.
+MOTIVO_PROVEDOR = "provedor recusou a chamada"
+
 
 def _resposta(bruto) -> Resposta:
     """O modelo escreve o valor; o vocabulário é nosso. Fora dele, `nao_sei` —
@@ -137,7 +143,7 @@ def investigar(achado: Achado, caixa: Caixa, cliente: ClienteLLM) -> Evidencia:
             # `CotaEsgotada` não entra aqui de propósito: ela é a degradação de
             # verdade, e precisa subir para acender o alarme (D17).
             logger.warning("provedor recusou no passo %s: %s", passo, falha)
-            motivo = f"provedor recusou a chamada: {falha}"[:TETO_RACIOCINIO]
+            motivo = f"{MOTIVO_PROVEDOR}: {falha}"[:TETO_RACIOCINIO]
             return _sem_conclusao(achado, passo, tokens, motivo)
 
         tokens += resposta.tokens

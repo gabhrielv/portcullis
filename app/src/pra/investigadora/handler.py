@@ -21,7 +21,7 @@ from pathlib import Path
 import boto3
 
 from pra.agente.ferramentas import Caixa
-from pra.agente.loop import investigar
+from pra.agente.loop import MOTIVO_PROVEDOR, investigar
 from pra.agente.prompt import VERSAO_PROMPT
 from pra.analisador.pacote import NOME_CODIGO, NOME_CONTEXTO, extrair, ler_contexto
 from pra.config import obrigatoria, parametro_ssm
@@ -165,6 +165,7 @@ def _processar(bucket: str, chave: str, contexto_lambda) -> None:
         "modelo": None,
         "versao_prompt": VERSAO_PROMPT,
         "nao_investigados": 0,
+        "recusados_pelo_provedor": 0,
         "evidencias": [],
     }
     # Contado aqui, não a partir de `saida`: silenciar é decisão da regra, e
@@ -199,11 +200,21 @@ def _processar(bucket: str, chave: str, contexto_lambda) -> None:
                     bloqueantes, Caixa(raiz), cliente, contexto_lambda
                 )
                 silenciaveis = sum(1 for e in evidencias if silencia_por_evidencia(e))
+                recusados = sum(
+                    1 for e in evidencias if e.raciocinio.startswith(MOTIVO_PROVEDOR)
+                )
+                # Recusa isolada e' ruido normal do provedor e nao degrada nada:
+                # aquele achado vira `nao_sei` e bloqueia. Mas se TODO achado
+                # investigado foi recusado, ninguem investigou coisa alguma —
+                # tudo bloqueia, o que e' seguro, e reportar `degradado: false`
+                # esconderia uma queda do provedor. D17: degradar em silencio e'
+                # pior que falhar.
                 saida |= {
                     "ok": True,
-                    "degradado": False,
+                    "degradado": bool(evidencias) and recusados == len(evidencias),
                     "evidencias": [_serializar(e) for e in evidencias],
                     "nao_investigados": faltaram,
+                    "recusados_pelo_provedor": recusados,
                 }
     except (CotaEsgotada, ProvedorIndisponivel) as falha:
         # D17: degrada para o modo marco 1. Sem evidência, a regra bloqueia
@@ -219,10 +230,11 @@ def _processar(bucket: str, chave: str, contexto_lambda) -> None:
 
     _gravar(bucket, f"{prefixo_saida}/{NOME_EVIDENCIAS}", saida)
     logger.info(
-        "evidencia gravada: %s evidencias=%d nao_investigados=%d degradado=%s",
+        "evidencia gravada: %s evidencias=%d nao_investigados=%d recusados=%d degradado=%s",
         prefixo_saida,
         len(saida["evidencias"]),
         saida["nao_investigados"],
+        saida["recusados_pelo_provedor"],
         saida["degradado"],
     )
 

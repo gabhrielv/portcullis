@@ -6,7 +6,7 @@ import pytest
 from dubles import ClienteFalso, ClienteQueFalha
 
 from pra.investigadora import handler
-from pra.llm.cliente import Chamada, CotaEsgotada, RespostaLLM
+from pra.llm.cliente import Chamada, CotaEsgotada, ProvedorIndisponivel, RespostaLLM
 
 SHA = "a" * 40
 PREFIXO_ENTRADA = f"entrada/gabhrielv/hoppr/{SHA}"
@@ -268,3 +268,36 @@ def test_achado_fora_de_fluxo_nao_gasta_token(s3, monkeypatch):
 
     handler.lambda_handler(_evento(), ContextoLambda())
     assert _escrito(s3)["evidencias"] == []
+
+
+def test_provedor_recusando_tudo_marca_degradado(s3, monkeypatch):
+    """Recusa em TODO achado e' queda de provedor, e tem de acender o alarme.
+
+    O isolamento por achado transforma a recusa em `nao_sei`, que bloqueia —
+    seguro, mas invisivel. Reportar `degradado: false` aqui esconderia uma
+    queda inteira do provedor, que e' o que a D17 chama de pior que falhar.
+    """
+    monkeypatch.setattr(
+        handler,
+        "_cliente_llm",
+        lambda: ClienteQueFalha(ProvedorIndisponivel("400: Parsing failed")),
+    )
+    handler.lambda_handler(_evento(), ContextoLambda())
+
+    dados = _escrito(s3)
+    assert dados["degradado"] is True
+    assert dados["recusados_pelo_provedor"] == len(dados["evidencias"])
+    assert dados["evidencias"], "a evidencia recusada ainda e' gravada, e bloqueia"
+
+
+def test_recusa_isolada_nao_marca_degradado(s3, monkeypatch):
+    """Uma geracao malformada e' ruido normal: aquele achado bloqueia e a
+    analise segue. Alarme que dispara nisso vira alarme que ninguem olha."""
+    monkeypatch.setattr(
+        handler, "_cliente_llm", lambda: ClienteFalso([_concluir()])
+    )
+    handler.lambda_handler(_evento(), ContextoLambda())
+
+    dados = _escrito(s3)
+    assert dados["degradado"] is False
+    assert dados["recusados_pelo_provedor"] == 0
