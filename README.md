@@ -613,13 +613,58 @@ falhar na segunda — tinha teto de 8.192 tokens, que o loop estoura por volta d
 terceiro passo. O nome do provedor e do modelo vivem no Parameter Store, nunca
 no código.
 
+### Qual modelo, decidido pelo corpus
+
+O provedor oferece dois modelos de produção com *tool calling*. A expectativa
+razoável — tarefa de rastrear fluxo de dados com conteúdo adversarial no meio —
+era que o maior se pagasse. **O corpus disse o contrário, nos quatro eixos:**
+
+| | menor | maior |
+|---|---|---|
+| tokens por investigação | **2.465** | 4.000 |
+| preço por token | **1×** | 2× |
+| custo relativo | **1×** | ~3,2× |
+| ferramenta inexistente chamada | **nunca** | 2 execuções |
+
+O maior inventa ferramentas que não foram declaradas — `json` numa execução,
+`commentary` noutra — e o provedor recusa a chamada com `400`. A reamostragem
+(abaixo) reduziu a frequência sem eliminar. O menor nunca fez isso.
+
+É a razão de a interface do cliente de modelo existir: trocar de modelo é mudar
+um parâmetro no Parameter Store, e o corpus é quem decide qual fica.
+
+### O que o provedor não conta
+
+Três restrições operacionais medidas construindo, nenhuma exposta em cabeçalho
+de resposta. Elas decidem o teto de achados por análise:
+
+- **O teto diário de tokens não aparece em lugar nenhum** — só no corpo do
+  `429`, quando já estourou. Não há como consultar a folga antes de gastar.
+- **Requisições são limitadas a ~8.000 tokens.** Acima disso vem `413`, antes
+  de qualquer checagem de cota.
+- **A janela é deslizante**, e os baldes de requisições e de tokens **não**
+  zeram juntos: medido, o de requisições virou no horário e o de tokens não se
+  mexeu.
+
+O cliente trata as três famílias de falha de forma diferente, porque elas pedem
+respostas diferentes: cota diária esgotada degrada a análise inteira e acende o
+alarme; teto por minuto é ritmo, então ele espera o `Retry-After` **sem gastar
+tentativa**; e `400` de geração malformada é falha de amostra, então ele
+reamostra com semente nova — repetir com a mesma semente devolveria a mesma
+saída inválida e queimaria cota por nada.
+
+Recusa que sobrevive à reamostragem vira `nao_sei` **naquele achado**, que
+bloqueia, e a análise segue com os outros. Se ela acontecer em *todos* os
+achados, a análise é marcada como degradada e o alarme dispara — investigar
+nada e reportar normalidade seria pior que falhar.
+
 ---
 
 ## Rodar
 
 ```bash
 make instalar          # venv e dependências
-make teste             # 443 testes, sem rede
+make teste             # 465 testes, sem rede
 make lint
 make imagem            # imagem do analisador
 ```
@@ -724,21 +769,31 @@ Este README separa as duas coisas de propósito.
 e 438 GB-s por análise, o pico de 695 MB, e os 16 achados do `hoppr` reproduzidos
 achado por achado entre a máquina e a nuvem.
 
-**Verificado sem rede:** as duas linhas de base do corpus, os 443 testes de unidade e 13
+**Verificado sem rede:** as duas linhas de base do corpus, os 465 testes de unidade e 14
 de integração, e as separações de privilégio checadas por teste. Também: que os
 150 arquivos de palheiro não disparam **nenhuma** regra do Semgrep, que
 `buscar("validar")` estoura o teto de 50 na escala grande, e que os 140 CWE dos
 conjuntos congelados estão todos classificados.
 
-**A medir, quando a triagem subir:** o placar do corpus com o modelo escolhido —
-veredito e raciocínio contra a linha de base, falso-negativos nas armadilhas e no
-corpus todo,
-ruído removido, estabilidade entre execuções e a queda de pequeno para grande; o
-rate limit e a confiabilidade de tool calling do modelo; a duração e o pico de
-memória da investigadora; e o tempo de parede de uma análise completa, que decide
-se o teto do workflow do repositório alvo continua servindo.
+**Medido contra o modelo de verdade:** que os dois modelos de produção fazem
+*tool calling* confiável o bastante para o harness; o custo de **2.465 tokens por
+investigação**; os três limites do provedor descritos acima; e a comparação entre
+os dois modelos, que decidiu qual fica.
 
-Três perguntas que o placar deve responder e hoje ninguém sabe:
+O placar do corpus inteiro, com o prompt atual, ainda **não** foi fechado: o teto
+diário de tokens permite cerca de uma medição séria por dia, e a série que
+encontrou os defeitos acima consumiu essas oportunidades. A execução completa
+mais recente, com o prompt anterior, deu veredito 19/22 contra 15/22 da linha de
+base, raciocínio 18/22 contra 1/22, ruído removido 5/7 e estabilidade 21/22 —
+reprovando por **um** falso-negativo, no caso de código morto recém-adicionado.
+A causa era o texto do prompt não conter a política que o próprio documento de
+arquitetura define, e a correção está verificada nesse caso isoladamente.
+
+**A medir, quando a triagem subir:** a duração e o pico de memória da
+investigadora, e o tempo de parede de uma análise completa, que decide se o teto
+do workflow do repositório alvo continua servindo.
+
+Três perguntas que o placar ainda deve responder:
 
 - **`sanitizador-de-mentira` passa?** Ele foi escrito esperando que **não** — a
   conferência de prova valida endereço, não semântica. Se falhar, é limitação
@@ -748,5 +803,7 @@ Três perguntas que o placar deve responder e hoje ninguém sabe:
 - **Quantos casos oscilam entre execuções?** Instabilidade alta invalida
   qualquer comparação de prompt feita com uma amostra só.
 
-Se o placar por escala mostrar que os casos grandes erram por falta de passo, o
-orçamento de 8 sobe — com número na mão, e não antes.
+O orçamento de 8 passos deixou de ser inalcançável: o caso de código morto o
+esgotou depois que o prompt passou a exigir rastrear a origem do valor. Ele sobe
+se o placar por escala mostrar erro por falta de passo — com número na mão, e não
+antes.
