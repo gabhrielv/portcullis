@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from pra.decisao.excecoes import EXCECOES, silenciado
 from pra.decisao.regra import (
     CWES_DE_FLUXO,
     CWES_FORA_DE_FLUXO,
@@ -533,3 +534,44 @@ def test_toda_excecao_de_regra_e_mesmo_necessaria():
         assert not (
             _cwes_da_regra(regra) & CWES_DE_FLUXO
         ), f"{regra} já é investigável pelo CWE — tire da exceção"
+
+
+# --- a lista de exceções -----------------------------------------------------
+
+
+def test_toda_excecao_diz_por_que():
+    """Sem justificativa, a lista vira o `# nosemgrep` que ela substituiu.
+
+    Daqui a três meses ninguém distingue "dispensado por decisão" de
+    "dispensado por preguiça" — e a diferença é o que torna a válvula
+    defensável diante de quem audita.
+    """
+    for excecao in EXCECOES:
+        assert excecao.porque.strip(), f"{excecao.regra} sem justificativa"
+        assert len(excecao.porque) > 30, f"{excecao.regra}: justificativa curta demais"
+
+
+def test_nao_ha_excecao_duplicada():
+    """Duas entradas para a mesma regra e prefixo escondem uma discordância:
+    quem lê a primeira acha que entendeu o motivo."""
+    chaves = [(e.regra, e.prefixo) for e in EXCECOES]
+    assert len(chaves) == len(set(chaves))
+
+
+def test_lacuna_conhecida_nao_e_silenciada():
+    """Estes achados do Checkov expõem lacuna real, não política.
+
+    Ficam FORA da lista de propósito: assim uma ocorrência nova bloqueia.
+    Se algum dia virarem decisão, entram aqui com o porquê — e este teste
+    é que obriga essa conversa a acontecer.
+    """
+    lacunas = (
+        "CKV_AWS_116",  # Lambda sem fila de mensagens mortas
+        "CKV2_AWS_12",  # security group padrão da VPC não restringe tudo
+        "CKV2_AWS_11",  # VPC sem flow logs
+        "CKV_AWS_272",  # Lambda sem validação de assinatura de código
+    )
+    for regra in lacunas:
+        assert not silenciado(regra, "infra/modules/funcoes/main.tf"), (
+            f"{regra} é lacuna conhecida e não deveria estar silenciada"
+        )
