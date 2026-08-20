@@ -4,7 +4,11 @@
 FROM public.ecr.aws/lambda/python:3.12
 
 # git NÃO é instalado de propósito: o analisador não clona nada.
-RUN pip install --no-cache-dir semgrep==1.172.0
+#
+# O Checkov acrescenta 59 MB comprimidos — medido em 20/08/2026: a imagem
+# vai de 270 para 329 MB, e o ECR cobra o comprimido. São US$0,0057/mês a
+# mais, o que decidiu mantê-lo aqui em vez de numa Lambda própria.
+RUN pip install --no-cache-dir semgrep==1.172.0 checkov==3.3.13
 
 WORKDIR /opt/pra
 COPY app/pyproject.toml ./

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from pra.modelos import Achado, Severidade
@@ -33,6 +33,10 @@ LIMITE_MENSAGEM_ERRO = 300
 SEVERIDADE = Severidade.ERRO
 
 CATEGORIA = "iac"
+
+# Vai no texto do achado: silenciar por comentario no PR nao funciona, e
+# quem le' o painel merece saber que alguem tentou.
+PREFIXO_SKIP = "[skip ignorado]"
 
 
 class CheckovFalhou(RuntimeError):
@@ -70,6 +74,11 @@ def _um_achado(bruto: dict) -> Achado | None:
     )
 
 
+def _marcar_skip(achado: Achado) -> Achado:
+    """Quem lê o Check Run precisa saber que houve tentativa de desligar."""
+    return replace(achado, mensagem=f"{PREFIXO_SKIP} {achado.mensagem}")
+
+
 def parsear(saida: dict | list) -> list[Achado]:
     """Aceita dict ou lista: o Checkov devolve lista quando roda mais de um
     framework no mesmo alvo, e um dict quando roda só um."""
@@ -79,11 +88,21 @@ def parsear(saida: dict | list) -> list[Achado]:
     for bloco in blocos:
         if not isinstance(bloco, dict):
             continue
-        falhas = (bloco.get("results") or {}).get("failed_checks") or []
-        for bruto in falhas:
+        resultados = bloco.get("results") or {}
+        for bruto in resultados.get("failed_checks") or []:
             achado = _um_achado(bruto)
             if achado is not None:
                 achados.append(achado)
+        # Os pulados entram como achado. Medido em 20/08/2026: um
+        # `#checkov:skip=CKV_AWS_26` escrito no arquivo tira a checagem do
+        # resultado — o mesmo buraco que o `--disable-nosem` fecha no semgrep,
+        # e o Checkov nao tem flag equivalente. Quem abre PR no alvo escreve
+        # esse comentario; a valvula legitima e' o `excecoes.py`, que ele nao
+        # alcanca. Sem isto, o portao se desliga a pedido de quem ele vigia.
+        for bruto in resultados.get("skipped_checks") or []:
+            achado = _um_achado(bruto)
+            if achado is not None:
+                achados.append(_marcar_skip(achado))
     return achados
 
 
@@ -114,9 +133,12 @@ def rodar(raiz: Path, timeout_s: int = 300) -> SaidaCheckov:
         "--output",
         "json",
         "--compact",
-        # Sem isto, um `#checkov:skip=` escrito no PR desliga a checagem — é o
-        # mesmo buraco que o `--disable-nosem` fecha no semgrep, e a válvula
-        # legítima é o `excecoes.py`, que quem abre PR no alvo não alcança.
+        # Nao baixa nada do Prisma Cloud. O analisador roda numa subnet sem
+        # rota para a internet, entao a tentativa falharia de qualquer jeito —
+        # melhor nao tentar do que gastar o timeout esperando.
+        #
+        # Ele NAO fecha o skip inline: isso e' feito no `parsear`, que trata
+        # `skipped_checks` como achado.
         "--skip-download",
     ]
     try:

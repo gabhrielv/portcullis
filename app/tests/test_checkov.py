@@ -6,6 +6,7 @@ import json
 import pytest
 
 from pra.analisador.checkov import (
+    PREFIXO_SKIP,
     CheckovFalhou,
     parsear,
     rodar,
@@ -122,3 +123,48 @@ def test_codigo_1_significa_achou_algo_nao_falhou(tmp_path, monkeypatch):
 
     monkeypatch.setattr("pra.analisador.checkov.subprocess.run", lambda *a, **k: Proc())
     assert len(rodar(tmp_path).achados) == 1
+
+
+def test_skip_escrito_no_pr_nao_desliga_a_checagem():
+    """Medido em 20/08/2026: `#checkov:skip=CKV_AWS_26` no arquivo tira a
+    checagem do resultado. É o buraco que o `--disable-nosem` fecha no
+    semgrep, e o Checkov não tem flag equivalente — então fecha aqui.
+
+    Quem abre PR no alvo escreve esse comentário. A válvula legítima é o
+    `excecoes.py`, que ele não alcança. Sem isto, o portão se desliga a
+    pedido de quem ele vigia.
+    """
+    saida = {
+        "results": {
+            "failed_checks": [],
+            "skipped_checks": [
+                {
+                    "check_id": "CKV_AWS_26",
+                    "check_name": "Ensure all data stored in the SNS topic is encrypted",
+                    "file_path": "/infra/main.tf",
+                    "file_line_range": [1, 3],
+                }
+            ],
+        }
+    }
+    achados = parsear(saida)
+    assert len(achados) == 1
+    assert achados[0].regra == "CKV_AWS_26"
+    assert achados[0].severidade is Severidade.ERRO
+
+
+def test_a_tentativa_de_skip_fica_visivel_no_texto():
+    """Quem lê o painel merece saber que alguém tentou desligar."""
+    saida = {
+        "results": {
+            "skipped_checks": [
+                {
+                    "check_id": "CKV_AWS_26",
+                    "check_name": "SNS sem criptografia",
+                    "file_path": "/infra/main.tf",
+                    "file_line_range": [1, 3],
+                }
+            ]
+        }
+    }
+    assert parsear(saida)[0].mensagem.startswith(PREFIXO_SKIP)
