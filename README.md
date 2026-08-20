@@ -31,6 +31,30 @@ Nos dois casos os 16 achados pré-existentes aparecem no resumo, recolhidos, e
 semana — e um portão desligado protege menos que nenhum, porque dá a impressão
 de que alguém está olhando.
 
+### O que a triagem mudou, em três PRs reais
+
+Os três rodaram no `hoppr` com o pipeline completo. Os dois primeiros carregam
+o mesmo tipo de achado — `ERROR` de categoria `security`, numa linha
+**adicionada** — e terminam em lados opostos:
+
+| PR | o que o PR adiciona | veredito |
+|---|---|---|
+| A | `subprocess` com `shell=True`, todas as partes vindas de uma constante literal | `success` · **1 silenciado por evidência** |
+| B | `request.args` concatenado direto numa query | `failure` · "4 achados novos bloqueiam", merge `BLOCKED` |
+| C | **o mesmo código do PR A**, com a triagem indisponível | `failure` · "1 achado novo bloqueia **(modo degradado: sem triagem por IA)**" |
+
+O PR A é o ponto do marco 2: um achado que o portão anterior bloquearia sem
+discussão passa, porque o agente foi ler o código e a regra aceitou a evidência.
+O B prova que isso não afrouxou nada. E o par **A/C é o mais direto** — código
+idêntico, desfechos opostos, decididos só por haver ou não triagem. Sem ela o
+portão não libera na dúvida: ele fecha.
+
+O PR C também exercita a cadeia de observabilidade inteira. A investigadora
+registrou `recusados=1 degradado=True`, emitiu a métrica, o alarme cruzou o
+limiar em **um minuto** e o SNS despachou o e-mail. Um portão que degrada em
+silêncio é pior que um que falha, e é por isso que a degradação é uma métrica e
+não um detalhe de log.
+
 ---
 
 ## Desenho
@@ -789,9 +813,28 @@ reprovando por **um** falso-negativo, no caso de código morto recém-adicionado
 A causa era o texto do prompt não conter a política que o próprio documento de
 arquitetura define, e a correção está verificada nesse caso isoladamente.
 
-**A medir, quando a triagem subir:** a duração e o pico de memória da
-investigadora, e o tempo de parede de uma análise completa, que decide se o teto
-do workflow do repositório alvo continua servindo.
+**Medido na nuvem, com a triagem no ar:**
+
+| etapa | duração | pico | alocado |
+|---|---|---|---|
+| webhook | 1,5 s | 96 MB | 256 MB |
+| buscadora | 2,9 s | 135 MB | 512 MB |
+| analisador | 252,7 s | 699 MB | 1769 MB |
+| investigadora, 1 achado | 3,0 s | 121 MB | 512 MB |
+| investigadora, 4 achados | 5,3 s | 121 MB | 512 MB |
+| publicadora | 3,9 s | 125 MB | 256 MB |
+| **parede: webhook → Check Run** | **4 min 26 s** | | |
+
+Três leituras. **A triagem quase não custa latência** — a investigadora
+acrescentou ~3 s a um caminho de 4 min, porque o gargalo é o Semgrep e não o
+modelo. **O analisador reproduziu a medição anterior** (252,7 s contra 247 s;
+699 MB contra 695 MB), o que mostra que o desenho está estável. E **a memória da
+investigadora não acompanha o volume**: 121 MB com 1 ou com 4 achados, porque o
+que ocupa memória é o runtime e o pacote, não a investigação. Os 512 MB são
+folga; quem sustenta o pior caso é o `timeout` de 600 s.
+
+O tempo de parede cabe com margem no teto de 15 min que o workflow do
+repositório alvo espera.
 
 Três perguntas que o placar ainda deve responder:
 
