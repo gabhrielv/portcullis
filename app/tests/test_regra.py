@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from portcullis.decisao.excecoes import EXCECOES, silenciado
+from portcullis.decisao.excecoes import ESTE_REPO, EXCECOES, silenciado
 from portcullis.decisao.regra import (
     CWES_DE_FLUXO,
     CWES_FORA_DE_FLUXO,
@@ -558,6 +558,23 @@ def test_nao_ha_excecao_duplicada():
     assert len(chaves) == len(set(chaves))
 
 
+def test_excecao_de_um_repo_nao_vaza_para_outro():
+    """As justificativas descrevem decisoes DESTE projeto — "a regra e'
+    `retention_in_days = 1`", "as Lambdas ficam fora da VPC pela D20".
+    Aplica-las ao Terraform de terceiro silenciaria achado legitimo com um
+    motivo que nao e' dele."""
+    assert silenciado("CKV_AWS_26", "infra/main.tf", "gabhrielv/portcullis")
+    assert not silenciado("CKV_AWS_26", "infra/main.tf", "outro/repo")
+
+
+def test_toda_excecao_declara_o_repositorio():
+    """O campo nao tem valor padrao de proposito: sem isso, excecao nova
+    vazaria para todo repositorio por omissao, em vez de obrigar a decisao."""
+    for excecao in EXCECOES:
+        assert excecao.repo, f"{excecao.regra} sem repositorio"
+        assert "/" in excecao.repo, f"{excecao.regra}: esperava owner/nome"
+
+
 def test_lacuna_conhecida_nao_e_silenciada():
     """Estes achados do Checkov expõem lacuna real, não política.
 
@@ -572,6 +589,6 @@ def test_lacuna_conhecida_nao_e_silenciada():
         "CKV_AWS_272",  # Lambda sem validação de assinatura de código
     )
     for regra in lacunas:
-        assert not silenciado(regra, "infra/modules/funcoes/main.tf"), (
+        assert not silenciado(regra, "infra/modules/funcoes/main.tf", ESTE_REPO), (
             f"{regra} é lacuna conhecida e não deveria estar silenciada"
         )

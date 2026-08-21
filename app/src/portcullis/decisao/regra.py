@@ -189,7 +189,9 @@ def decidir(
         # pré-existente e achado que ele não sabe julgar.
         if not _e_novo(achado, contexto):
             preexistentes.append(achado)
-        elif silenciado(achado.regra, achado.caminho):
+        elif silenciado(
+            achado.regra, achado.caminho, f"{contexto.owner}/{contexto.repo}"
+        ):
             silenciados.append(achado)
         elif not _bloqueia(achado):
             avisos.append(achado)

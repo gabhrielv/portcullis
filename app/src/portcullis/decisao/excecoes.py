@@ -23,18 +23,34 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class Excecao:
     """`prefixo` vazio vale para o repositório inteiro — política de IaC não
-    tem local, ao contrário de um segredo falso dentro de uma pasta de teste."""
+    tem local, ao contrário de um segredo falso dentro de uma pasta de teste.
+
+    `repo` NÃO tem valor padrão, de propósito. As justificativas abaixo são
+    decisões DESTE projeto — "a regra é `retention_in_days = 1`", "as Lambdas
+    ficam fora da VPC pela D20". Aplicá-las ao Terraform de um terceiro
+    silenciaria achado legítimo com um motivo que não é dele. Sem padrão,
+    exceção nova é obrigada a dizer a quem pertence em vez de vazar por
+    omissão.
+
+    É um pedaço pequeno da D18 antecipado — o `.pra.yml` por repositório
+    continua sendo marco 4.
+    """
 
     regra: str
     prefixo: str
     porque: str
+    repo: str
 
+
+# As exceções de IaC descrevem decisões deste repositório, e só valem aqui.
+ESTE_REPO = "gabhrielv/portcullis"
 
 EXCECOES: tuple[Excecao, ...] = (
     Excecao(
         "python.jwt.security.jwt-hardcode.jwt-python-hardcoded-secret",
         "backend/tests/",
         "Segredo falso dentro do teste que verifica a checagem de segredo.",
+        repo="gabhrielv/hoppr",
     ),
     # --- Checkov: retenção e observabilidade -------------------------------
     Excecao(
@@ -42,18 +58,21 @@ EXCECOES: tuple[Excecao, ...] = (
         "infra/",
         "Exige log de 1 ano; a regra do projeto é `retention_in_days = 1`. "
         "O registro que precisa durar é a auditoria no DynamoDB, não o log.",
+        repo=ESTE_REPO,
     ),
     Excecao(
         "CKV_AWS_76",
         "infra/",
         "Log de acesso no API Gateway foi decidido contra na T7: custa "
         "CloudWatch e não diz nada que o log da Lambda não diga.",
+        repo=ESTE_REPO,
     ),
     Excecao(
         "CKV_AWS_50",
         "infra/",
         "X-Ray cobra por trace. O tempo de parede já é medido pelo REPORT de "
         "cada Lambda, que é grátis.",
+        repo=ESTE_REPO,
     ),
     # --- Checkov: a arquitetura da D20 -------------------------------------
     Excecao(
@@ -63,6 +82,7 @@ EXCECOES: tuple[Excecao, ...] = (
         "com a internet ficam FORA de propósito, porque colocá-las dentro "
         "exigiria NAT Gateway (~US$32/mês). O analisador, que não fala com "
         "ninguém, está dentro — e é a única que precisa estar.",
+        repo=ESTE_REPO,
     ),
     Excecao(
         "CKV_AWS_290",
@@ -70,11 +90,13 @@ EXCECOES: tuple[Excecao, ...] = (
         "Acusa `Resource = \"*\"` nas ações de ENI. É exigência da AWS para "
         "Lambda em VPC: a função gerencia a própria interface de rede, e "
         "essas três ações não aceitam ARN específico.",
+        repo=ESTE_REPO,
     ),
     Excecao(
         "CKV_AWS_355",
         "infra/modules/analisador/",
         "Mesma causa do CKV_AWS_290: as ações de ENI exigem `Resource = \"*\"`.",
+        repo=ESTE_REPO,
     ),
     # --- Checkov: limites da conta, medidos --------------------------------
     Excecao(
@@ -83,42 +105,48 @@ EXCECOES: tuple[Excecao, ...] = (
         "Exige concorrência reservada. Medido em 13/08/2026: o limite da "
         "conta é 10, e a AWS recusa qualquer reserva que deixe menos de 100 "
         "livres — ou seja, recusa todas. O teto da conta já é o teto de rajada.",
+        repo=ESTE_REPO,
     ),
     # --- Checkov: chave gerenciada pelo cliente ----------------------------
     # As sete abaixo pedem CMK onde a criptografia padrão da AWS já está
     # ligada. Cada chave custa ~US$1/mês, e são sete recursos distintos: o
     # custo zero morreria para trocar criptografia gerenciada pela AWS por
     # criptografia gerenciada por nós, sem mudança de modelo de ameaça.
-    Excecao("CKV_AWS_26", "infra/", "CMK no SNS; a criptografia padrão já cobre."),
-    Excecao("CKV_AWS_136", "infra/", "CMK no ECR; a criptografia padrão já cobre."),
-    Excecao("CKV_AWS_158", "infra/", "CMK no CloudWatch; log tem retenção de 1 dia."),
-    Excecao("CKV_AWS_119", "infra/", "CMK no DynamoDB; a criptografia padrão já cobre."),
-    Excecao("CKV_AWS_145", "infra/", "CMK no S3; a criptografia padrão já cobre."),
-    Excecao("CKV_AWS_27", "infra/", "CMK no SQS; a mensagem é um ponteiro, não dado."),
+    Excecao("CKV_AWS_26", "infra/", "CMK no SNS; a criptografia padrão já cobre.", repo=ESTE_REPO),
+    Excecao("CKV_AWS_136", "infra/", "CMK no ECR; a criptografia padrão já cobre.", repo=ESTE_REPO),
+    Excecao("CKV_AWS_158", "infra/", "CMK no CloudWatch; log tem retenção de 1 dia.", repo=ESTE_REPO),
+    Excecao("CKV_AWS_119", "infra/", "CMK no DynamoDB; a criptografia padrão já cobre.", repo=ESTE_REPO),
+    Excecao("CKV_AWS_145", "infra/", "CMK no S3; a criptografia padrão já cobre.", repo=ESTE_REPO),
+    Excecao("CKV_AWS_27", "infra/", "CMK no SQS; a mensagem é um ponteiro, não dado.", repo=ESTE_REPO),
     Excecao(
         "CKV_AWS_173",
         "infra/",
         "CMK nas variáveis de ambiente da Lambda. Elas carregam NOMES de "
         "parâmetro do SSM, nunca valores — é a G2, e não há segredo ali.",
+        repo=ESTE_REPO,
     ),
     # --- Checkov: o pacote é descartável -----------------------------------
     # O bucket guarda tarball e evidência com retenção de 1 dia. Versionar,
     # replicar entre regiões e auditar acesso a dado que morre em 24 h é
     # pagar por durabilidade que o desenho não quer.
-    Excecao("CKV_AWS_21", "infra/", "Versionamento no bucket de pacotes descartáveis."),
-    Excecao("CKV_AWS_144", "infra/", "Replicação entre regiões de dado que vive 1 dia."),
-    Excecao("CKV_AWS_18", "infra/", "Log de acesso ao S3; custa mais que o dado vale."),
+    Excecao("CKV_AWS_21", "infra/", "Versionamento no bucket de pacotes descartáveis.", repo=ESTE_REPO),
+    Excecao("CKV_AWS_144", "infra/", "Replicação entre regiões de dado que vive 1 dia.", repo=ESTE_REPO),
+    Excecao("CKV_AWS_18", "infra/", "Log de acesso ao S3; custa mais que o dado vale.", repo=ESTE_REPO),
     Excecao(
         "CKV_AWS_51",
         "infra/",
         "Exige tag imutável no ECR. A política de ciclo de vida guarda 1 "
         "imagem e a tag `local` é reescrita a cada push, de propósito.",
+        repo=ESTE_REPO,
     ),
 )
 
 
-def silenciado(regra: str, caminho: str) -> bool:
+def silenciado(regra: str, caminho: str, repo: str) -> bool:
+    """`repo` no formato `owner/nome`. Exceção só vale no repositório dela."""
     return any(
-        regra == excecao.regra and caminho.startswith(excecao.prefixo)
+        regra == excecao.regra
+        and repo == excecao.repo
+        and caminho.startswith(excecao.prefixo)
         for excecao in EXCECOES
     )
