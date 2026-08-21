@@ -266,3 +266,4 @@ def test_provedor_que_recusa_a_chamada_vira_nao_sei_so_neste_achado(tmp_path):
     assert e.entrada_controlavel is Resposta.NAO_SEI
     assert e.sanitizacao_encontrada is Resposta.NAO_SEI
     assert "Parsing failed" in e.raciocinio
+

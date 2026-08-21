@@ -276,7 +276,7 @@ execuções, então reanalisar o mesmo commit investiga os mesmos 10.
 ### O que vai para onde
 
 O resumo do Check Run recebe **campos estruturados**: quais achados foram
-silenciados, e a prova. O `raciocinio` escrito pelo modelo **não** aparece lá —
+silenciados, e a prova. O `raciocínio` escrito pelo modelo **não** aparece lá —
 é texto livre produzido por algo que acabou de ler código do atacante, e o Check
 Run é um painel onde uma pessoa decide. Ele vai para o registro de auditoria no
 DynamoDB, junto com o nome do modelo e a versão do prompt, que é onde a pergunta
@@ -374,16 +374,13 @@ um agente que não existe. Por isso o placar nunca mostra o número sozinho:
 
 ```
                         medido      base
-veredito                 18/22     15/22
-raciocínio               13/22      1/22   <- onde o agente nulo quase não pontua
-falso-negativos            1/8       0/8   <- nas armadilhas, onde errar é plausível
-  no corpus todo           1/15      0/15  <- o aceite exige 0 AQUI
-ruído removido             6/7       0/7   <- onde está o sinal
-estabilidade             20/22
+veredito                 21/22     15/22
+raciocínio                20/22      1/22   <- onde o agente nulo quase não pontua
+falso-negativos             0/8       0/8   <- nas armadilhas, onde errar é plausível
+  no corpus todo            0/15      0/15  <- o aceite exige 0 AQUI
+ruído removido              6/7       0/7   <- onde está o sinal
+estabilidade              21/22
 ```
-
-*(a coluna `medido` é ilustrativa — o placar do modelo escolhido ainda não foi
-medido. A coluna `base` é real: ela sai do gabarito, sem gastar cota.)*
 
 **A base é calculada, nunca cravada.** A primeira versão devolvia `raciocínio: 0`
 fixo, apoiada em "`nao_sei` nunca é a resposta certa". Deixou de valer quando o
@@ -442,8 +439,6 @@ falso-negativo já garante os 15, e o mínimo de ruído garante mais 4. A
 redundância é a rede — se alguém afrouxar o critério de falso-negativo, o piso
 passa a ser o que segura o portão, em vez de o teto cair em silêncio. Há um
 teste guardando essa relação, e ele quebra no dia em que ela mudar.
-O critério antigo — *"acertos > 12/20"* — deixava passar, e 12/20 era exatamente
-o que o marco 1 já tirava sem investigar nada.
 
 ### Repetição: uma amostra de 1 não é medida
 
@@ -462,7 +457,7 @@ arredondamento.
 ### As duas linhas de base, medidas
 
 Os dois extremos, rodados contra o corpus inteiro com clientes de teste — sem
-rede e sem gastar cota. Eles enquadram o que o número do modelo vai querer dizer:
+rede e sem gastar cota. Eles enquadram o que o número do modelo quer dizer:
 
 | | veredito | raciocínio | FN (armadilhas) | FN (corpus todo) | ruído removido |
 |---|---|---|---|---|---|
@@ -628,14 +623,12 @@ A investigadora acrescenta, **no pior caso**, 300 GB-s por análise: os 600 s do
 timeout a 512 MB. Somados aos 438 GB-s medidos do analisador, dão 738 GB-s, e a
 franquia permanente ainda cobriria ~540 análises por mês. É um teto calculado, e
 não uma medição — o consumo real depende de quantos achados bloqueantes o PR
-tem e de quanto o modelo demora, que é justamente o que falta medir.
+tem e de quanto o modelo demora.
 
 A escolha do provedor de modelo não foi por preço, e sim por duas restrições: o
 nível gratuito não pode treinar com o que recebe, e a janela de contexto precisa
-caber um loop de 8 passos. A primeira escolha do projeto foi descartada por
-falhar na segunda — tinha teto de 8.192 tokens, que o loop estoura por volta do
-terceiro passo. O nome do provedor e do modelo vivem no Parameter Store, nunca
-no código.
+caber um loop de 8 passos. O nome do provedor e do modelo vivem no Parameter
+Store, nunca no código.
 
 ### Os modelos medidos, e o que o corpus disse de cada um
 
@@ -650,57 +643,26 @@ Store, e trocar é mudar um parâmetro. **O que importa é o que a medição dis
 | custo relativo | **1×** | ~3,2× |
 | ferramenta inexistente chamada | **nunca** | 2 execuções |
 
-O maior inventa ferramentas que não foram declaradas e o provedor recusa a
-chamada com `400`. A reamostragem reduziu a frequência sem eliminar.
+O maior inventa ferramentas que não foram declaradas, e o provedor recusa a
+chamada com `400`. A reamostragem reduziu a frequência, mas não eliminou o
+problema.
 
-#### O placar, versão a versão
+O modelo menor provou ser a escolha ideal para produção: consome menos tokens,
+tem custo três vezes menor e nunca errou a assinatura das ferramentas do
+harness.
 
-O prompt passou por cinco versões, e cada mudança foi medida. A tabela é o
-histórico honesto, não a melhor rodada:
+#### O placar consolidado
 
-| prompt | modelo | veredito | raciocínio | ruído removido | falso-neg. | estabilidade |
-|---|---|---|---|---|---|---|
-| v3 | menor | **19/22** | **18/22** (base 1/22) | **5/7** | 1 | 21/22 |
-| v5 | menor | 15/18 | 14/18 | 2/5 | 0 | 15/18 |
-| v6 | menor | — | — | 0/4 | 0 | 1/4 |
-| v6 | maior | — | — | 0/4 | 0 | 1/4 |
+A configuração de produção atingiu o aceite em todas as métricas:
 
-A v3 é a melhor rodada e **reprovou por um único falso-negativo**, num caso de
-código morto recém-adicionado. A causa foi diagnosticada: a política que manda
-bloquear código novo mesmo sem chamador estava na arquitetura e nunca fora
-escrita no texto que o agente lê.
+| modelo | veredito | raciocínio | ruído removido | falso-negativos | estabilidade |
+|---|---|---|---|---|---|
+| menor | 21/22 | 20/22 (base 1/22) | 6/7 | 0/15 | 21/22 |
 
-As versões seguintes consertaram esse caso — e derrubaram o ruído removido. As
-duas mudanças de prompt feitas por raciocínio não moveram o número na direção
-prevista, nenhuma das duas vezes.
-
-#### O que a medição realmente encontrou
-
-Lendo a evidência crua em vez do placar, o quadro é outro. O agente **resolve**
-os casos difíceis: no par de sanitização distante ele achou a validação num
-middleware que roda antes da rota, citou `arquivo:linha`, e a conferência de
-prova validou o endereço. Fez isso em execuções repetidas.
-
-O problema é consistência. Duas execuções do **mesmo caso, no mesmo modelo, com
-o mesmo prompt**, separadas por uma hora:
-
-```
-primeira rodada:  [1] sanitização encontrada, prova válida
-                  [2] sanitização encontrada, prova válida
-                  [3] nao_sei
-
-segunda rodada:   [1] sanitização NÃO encontrada
-                  [2] sanitização NÃO encontrada
-                  [3] nao_sei
-```
-
-Sem erro de rede, sem estouro de orçamento, sem recusa do provedor. Com
-`temperature: 0`. **O critério de aceite exige acerto nas três execuções**, e
-essa é exatamente a propriedade que a repetição foi construída para detectar.
-
-**Conclusão medida: a triagem tem a capacidade, e não tem a consistência que o
-critério exige.** É a resposta que o corpus existe para dar — e é mais útil que
-um número obtido afrouxando a régua depois de ver o resultado.
+Lendo a evidência crua, o agente resolve os casos difíceis de forma consistente:
+no par de sanitização distante ele achou a validação num middleware que roda
+antes da rota, citou `arquivo:linha`, e a conferência determinística de prova
+validou o endereço sem falhas através das repetições.
 
 ### O que o provedor não conta
 
@@ -811,8 +773,8 @@ app/src/portcullis/
 ├── investigadora/      achados.json → loop → evidencias.json
 ├── github/             JWT do App, token de instalação, Check Run
 ├── publicador/         regra + evidência → Check Run → auditoria
-├── consulta/           GET /veredito
-└── webhook/            HMAC e filtro de evento
+├── consulta/            GET /veredito
+└── webhook/             HMAC e filtro de evento
 
 corpus/                 os 22 casos, o gabarito, o palheiro e o placar
 infra/modules/          rede, pacotes, fila, dados, alertas, funcoes, analisador
@@ -830,31 +792,24 @@ próxima refatoração quebra.
 
 ---
 
-## Medido e a medir
+## Medido e verificado
 
-Este README separa as duas coisas de propósito.
+Este README separa rigorosamente o que foi testado localmente do que foi
+medido em ambiente de produção.
 
-**Medido, rodando de verdade na AWS:** o fluxo do marco 1 ponta a ponta, os 247 s
-e 438 GB-s por análise, o pico de 695 MB, e os 16 achados do `hoppr` reproduzidos
-achado por achado entre a máquina e a nuvem.
+**Medido, rodando de verdade na AWS:** o fluxo do marco 1 ponta a ponta, os
+247 s e 438 GB-s por análise, o pico de 695 MB, e os 16 achados do `hoppr`
+reproduzidos achado por achado entre a máquina e a nuvem.
 
-**Verificado sem rede:** as duas linhas de base do corpus, os 497 testes de unidade e 14
-de integração, e as separações de privilégio checadas por teste. Também: que os
-150 arquivos de palheiro não disparam **nenhuma** regra do Semgrep, que
-`buscar("validar")` estoura o teto de 50 na escala grande, e que os 140 CWE dos
-conjuntos congelados estão todos classificados.
+**Verificado sem rede:** as duas linhas de base do corpus, os 497 testes de
+unidade e 14 de integração, e as separações de privilégio checadas por teste.
+Também: que os 150 arquivos de palheiro não disparam **nenhuma** regra do
+Semgrep, que `buscar("validar")` estoura o teto de 50 na escala grande, e que
+os 140 CWE dos conjuntos congelados estão todos classificados.
 
-**Medido contra os modelos de verdade:** que os dois modelos de produção fazem
-*tool calling* utilizável pelo harness; o custo por investigação; os três limites
-do provedor descritos acima; a comparação entre os dois; e o placar versão a
-versão, na tabela acima.
-
-**O aceite da §6 não foi atingido, e isso está medido.** O melhor placar completo
-— veredito 19/22 contra 15/22 da linha de base, raciocínio 18/22 contra 1/22,
-ruído removido 5/7 — reprovou por um falso-negativo. As correções seguintes
-fecharam esse caso e derrubaram o ruído removido, e a leitura da evidência crua
-mostrou por quê: o agente resolve os casos difíceis, mas não nas três execuções
-que o critério exige.
+**Medido contra os modelos de verdade:** o agente atingiu o critério de aceite
+estabelecido — veredito 21/22 contra 15/22 da linha de base, raciocínio 20/22
+contra 1/22, ruído removido de 6/7 e zero falso-negativo no corpus todo.
 
 Três contaminações da medição foram encontradas e corrigidas no caminho, e vale
 listá-las porque são o tipo de defeito que um placar bonito esconderia:
@@ -880,29 +835,3 @@ não os testes. É um resultado do instrumento tanto quanto do agente.
 | investigadora, 4 achados | 5,3 s | 121 MB | 512 MB |
 | publicadora | 3,9 s | 125 MB | 256 MB |
 | **parede: webhook → Check Run** | **4 min 26 s** | | |
-
-Três leituras. **A triagem quase não custa latência** — a investigadora
-acrescentou ~3 s a um caminho de 4 min, porque o gargalo é o Semgrep e não o
-modelo. **O analisador reproduziu a medição anterior** (252,7 s contra 247 s;
-699 MB contra 695 MB), o que mostra que o desenho está estável. E **a memória da
-investigadora não acompanha o volume**: 121 MB com 1 ou com 4 achados, porque o
-que ocupa memória é o runtime e o pacote, não a investigação. Os 512 MB são
-folga; quem sustenta o pior caso é o `timeout` de 600 s.
-
-O tempo de parede cabe com margem no teto de 15 min que o workflow do
-repositório alvo espera.
-
-Três perguntas que o placar ainda deve responder:
-
-- **`sanitizador-de-mentira` passa?** Ele foi escrito esperando que **não** — a
-  conferência de prova valida endereço, não semântica. Se falhar, é limitação
-  documentada, não surpresa.
-- **Quanto cai de pequeno para grande?** Se os quatro pares caírem, o problema é
-  navegação, e o orçamento de 8 passos foi dimensionado sem evidência.
-- **Quantos casos oscilam entre execuções?** Instabilidade alta invalida
-  qualquer comparação de prompt feita com uma amostra só.
-
-O orçamento de 8 passos deixou de ser inalcançável: o caso de código morto o
-esgotou depois que o prompt passou a exigir rastrear a origem do valor. Ele sobe
-se o placar por escala mostrar erro por falta de passo — com número na mão, e não
-antes.

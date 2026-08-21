@@ -9,6 +9,15 @@
 .terraform/
 terraform.tfstate
 terraform.tfstate.backup
+# o Terraform despeja o state INTEIRO aqui quando nao consegue gravar no
+# backend: mesmo conteudo do tfstate, mesmo risco de segredo em texto puro
+errored.tfstate
+.terraform.tfstate.lock.info
+crash.log
+crash.*.log
+# plano binario: carrega os valores ja' resolvidos, inclusive os sensiveis
+*.tfplan
+tfplan
 
 # artefatos de build (regras do semgrep, zip das lambdas)
 build/
@@ -25,6 +34,9 @@ venv/
 .ruff_cache/
 htmlcov/
 .coverage
+# o pytest-cov paralelo grava um arquivo por processo, e o xml do relatorio
+.coverage.*
+coverage.xml
 
 # sistema
 .DS_Store
