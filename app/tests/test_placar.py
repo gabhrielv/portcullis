@@ -360,3 +360,80 @@ def test_retomada_ignora_placar_corrompido(tmp_path, monkeypatch):
             ids=["sqli-direto"])
 
     assert set(rodar.medidos_antes("m", 3)) == {"sqli-direto"}
+
+
+# --- contaminacao da medicao -------------------------------------------------
+
+
+class _ClienteQueRecusa:
+    """Recusa `n` vezes e depois responde. Reproduz o 429 de teto por minuto
+    que o `sanitizacao-distante-grande` levou em 21/08/2026."""
+
+    modelo = "m"
+
+    def __init__(self, recusas):
+        self.restam = recusas
+        self.chamadas = 0
+
+    def conversar(self, mensagens, ferramentas):
+        from portcullis.llm.cliente import ProvedorIndisponivel
+
+        self.chamadas += 1
+        if self.restam > 0:
+            self.restam -= 1
+            raise ProvedorIndisponivel("429: teto por minuto")
+        from portcullis.llm.cliente import Chamada, RespostaLLM
+
+        return RespostaLLM(
+            chamadas=(
+                Chamada(
+                    nome="concluir",
+                    id="c",
+                    argumentos={
+                        "entrada_controlavel": "nao",
+                        "sanitizacao_encontrada": "nao",
+                        "raciocinio": "investiguei",
+                    },
+                ),
+            ),
+            tokens=10,
+        )
+
+
+def _achado_qualquer():
+    from portcullis.modelos import Achado, Severidade
+
+    return Achado("r", Severidade.ERRO, "app/db.py", 1, 1, "m")
+
+
+def test_recusa_do_provedor_e_repetida_em_vez_de_pontuada(tmp_path):
+    """Recusa nao e' medicao. Pontua-la como `nao_sei` faria a falha de
+    infraestrutura contar como erro do agente — e como o aceite exige
+    unanimidade, UMA execucao contaminada reprovaria o caso inteiro."""
+    from portcullis.agente.ferramentas import Caixa
+
+    (tmp_path / "app").mkdir()
+    (tmp_path / "app" / "db.py").write_text("x = 1\n")
+    cliente = _ClienteQueRecusa(recusas=2)
+
+    saida = rodar._uma_execucao(
+        {"evidencia_aceita": []}, _achado_qualquer(), Caixa(tmp_path), cliente
+    )
+    assert saida["entrada_controlavel"] == "nao", "devia ter repetido ate' responder"
+
+
+def test_recusa_em_todas_as_tentativas_deixa_o_caso_por_medir(tmp_path):
+    """Sem isso, o caso seria bancado com um resultado que nunca foi medido —
+    e a retomada nunca voltaria nele."""
+    import pytest
+
+    from portcullis.agente.ferramentas import Caixa
+
+    (tmp_path / "app").mkdir()
+    (tmp_path / "app" / "db.py").write_text("x = 1\n")
+    cliente = _ClienteQueRecusa(recusas=99)
+
+    with pytest.raises(rodar.MedicaoContaminada):
+        rodar._uma_execucao(
+            {"evidencia_aceita": []}, _achado_qualquer(), Caixa(tmp_path), cliente
+        )

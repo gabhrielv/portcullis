@@ -36,7 +36,7 @@ from congelar import CASOS, casa_alvo, ler_gabarito, raiz_do_caso
 from placar import aceite, evidencia_bate, mede, render, resumir
 
 from portcullis.agente.ferramentas import Caixa
-from portcullis.agente.loop import investigar
+from portcullis.agente.loop import MOTIVO_PROVEDOR, investigar
 from portcullis.agente.prompt import VERSAO_PROMPT
 from portcullis.config import obrigatoria, parametro_ssm
 from portcullis.decisao.regra import silencia_por_evidencia
@@ -45,6 +45,23 @@ from portcullis.llm.groq import ClienteGroq
 from portcullis.modelos import Achado, Severidade
 
 PLACARES = Path(__file__).resolve().parent / "placares"
+
+# Recusa do provedor nao e' medicao — e' ausencia de medicao. Repetir
+# converte cota ja' gasta em resultado; pontuar como `nao_sei` faria a
+# falha de infraestrutura contar como erro do agente.
+#
+# Medido em 21/08/2026: no `sanitizacao-distante-grande` o agente acertou
+# com prova valida em 2 de 3 execucoes, e a terceira caiu num 429 de teto
+# por minuto. Como o aceite exige unanimidade, UMA execucao contaminada
+# reprovava o caso inteiro.
+#
+# Estouro de orcamento NAO entra aqui: ele e' resultado legitimo, e a D24
+# diz que bloqueia.
+TENTATIVAS_POR_EXECUCAO = 3
+
+
+class MedicaoContaminada(RuntimeError):
+    """O provedor recusou em todas as tentativas. O caso fica por medir."""
 
 
 def _achado_do_alvo(caso: Path, alvo: dict) -> Achado:
@@ -70,7 +87,17 @@ def _achado_do_alvo(caso: Path, alvo: dict) -> Achado:
 
 
 def _uma_execucao(entrada: dict, achado: Achado, caixa: Caixa, cliente) -> dict:
-    evidencia = investigar(achado, caixa, cliente)
+    for tentativa in range(1, TENTATIVAS_POR_EXECUCAO + 1):
+        evidencia = investigar(achado, caixa, cliente)
+        if not evidencia.raciocinio.startswith(MOTIVO_PROVEDOR):
+            break
+        print(
+            f"    (provedor recusou; repetindo {tentativa}/{TENTATIVAS_POR_EXECUCAO})",
+            flush=True,
+        )
+    else:
+        raise MedicaoContaminada(evidencia.raciocinio[:120])
+
     return {
         "silenciou": silencia_por_evidencia(evidencia),
         "raciocinio_bateu": evidencia_bate(evidencia, entrada["evidencia_aceita"]),
@@ -101,7 +128,7 @@ def rodar(entradas: list[dict], cliente, repeticoes: int) -> tuple[list[dict], s
         for _ in range(vezes):
             try:
                 execucoes.append(_uma_execucao(entrada, achado, caixa, cliente))
-            except (CotaEsgotada, ProvedorIndisponivel) as falha:
+            except (CotaEsgotada, ProvedorIndisponivel, MedicaoContaminada) as falha:
                 return linhas, f"{type(falha).__name__}: {falha}"
 
         linha = resumir(entrada, execucoes)
