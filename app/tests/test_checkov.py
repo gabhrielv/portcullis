@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from pra.analisador.checkov import (
+from portcullis.analisador.checkov import (
     PREFIXO_SKIP,
     CheckovFalhou,
     parsear,
@@ -13,8 +13,8 @@ from pra.analisador.checkov import (
     tem_terraform,
     versao_do_conjunto,
 )
-from pra.decisao.regra import investigavel
-from pra.modelos import Severidade
+from portcullis.decisao.regra import investigavel
+from portcullis.modelos import Severidade
 
 SAIDA_REAL = {
     "check_type": "terraform",
@@ -99,7 +99,7 @@ def test_checkov_ausente_vira_falha_nomeada(tmp_path, monkeypatch):
     def sem_binario(*_a, **_k):
         raise FileNotFoundError("checkov")
 
-    monkeypatch.setattr("pra.analisador.checkov.subprocess.run", sem_binario)
+    monkeypatch.setattr("portcullis.analisador.checkov.subprocess.run", sem_binario)
     with pytest.raises(CheckovFalhou, match="não está instalado"):
         rodar(tmp_path)
 
@@ -110,7 +110,7 @@ def test_saida_que_nao_e_json_vira_falha_nomeada(tmp_path, monkeypatch):
         stdout = "nao e json"
         stderr = ""
 
-    monkeypatch.setattr("pra.analisador.checkov.subprocess.run", lambda *a, **k: Proc())
+    monkeypatch.setattr("portcullis.analisador.checkov.subprocess.run", lambda *a, **k: Proc())
     with pytest.raises(CheckovFalhou, match="JSON"):
         rodar(tmp_path)
 
@@ -121,7 +121,7 @@ def test_codigo_1_significa_achou_algo_nao_falhou(tmp_path, monkeypatch):
         stdout = json.dumps(SAIDA_REAL)
         stderr = ""
 
-    monkeypatch.setattr("pra.analisador.checkov.subprocess.run", lambda *a, **k: Proc())
+    monkeypatch.setattr("portcullis.analisador.checkov.subprocess.run", lambda *a, **k: Proc())
     assert len(rodar(tmp_path).achados) == 1
 
 

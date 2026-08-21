@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from dubles import ClienteFalso, ClienteQueFalha
 
-from pra.investigadora import handler
-from pra.llm.cliente import Chamada, CotaEsgotada, ProvedorIndisponivel, RespostaLLM
+from portcullis.investigadora import handler
+from portcullis.llm.cliente import Chamada, CotaEsgotada, ProvedorIndisponivel, RespostaLLM
 
 SHA = "a" * 40
 PREFIXO_ENTRADA = f"entrada/gabhrielv/hoppr/{SHA}"
@@ -89,8 +89,8 @@ def s3(tmp_path, monkeypatch):
         }
     )
     monkeypatch.setattr(handler, "_cliente_s3", lambda: falso)
-    monkeypatch.setenv("PRA_PARAM_CHAVE_LLM", "/pra/llm/chave")
-    monkeypatch.setenv("PRA_PARAM_MODELO_LLM", "/pra/llm/modelo")
+    monkeypatch.setenv("PORTCULLIS_PARAM_CHAVE_LLM", "/portcullis/llm/chave")
+    monkeypatch.setenv("PORTCULLIS_PARAM_MODELO_LLM", "/portcullis/llm/modelo")
     return falso
 
 

@@ -6,7 +6,7 @@ rede — é a G15, e é o que mantém a suíte em segundos.
 
 from __future__ import annotations
 
-from pra.llm.cliente import Ferramenta, RespostaLLM
+from portcullis.llm.cliente import Ferramenta, RespostaLLM
 
 
 class ClienteFalso:

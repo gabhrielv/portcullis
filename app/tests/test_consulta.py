@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from pra.consulta import handler as consulta
+from portcullis.consulta import handler as consulta
 
 SHA = "c085f4f65222ba3a6722791d09d11250f70ef5e7"
 
@@ -33,7 +33,7 @@ def registro(veredito="liberado"):
 def tabela(monkeypatch):
     falsa = TabelaFalsa()
     monkeypatch.setattr(consulta, "_tabela", lambda nome: falsa)
-    monkeypatch.setenv("PRA_TABELA", "pra-auditoria")
+    monkeypatch.setenv("PORTCULLIS_TABELA", "pra-auditoria")
     return falsa
 
 

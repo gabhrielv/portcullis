@@ -7,7 +7,7 @@ modelo que acabou de ler código de terceiro.
 
 import pytest
 
-from pra.agente.ferramentas import (
+from portcullis.agente.ferramentas import (
     LINHAS_DE_JANELA,
     TETO_LINHAS,
     TETO_RESULTADOS,

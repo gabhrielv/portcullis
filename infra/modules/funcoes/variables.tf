@@ -45,14 +45,14 @@ variable "arn_topico_alertas" {
 }
 
 # Os CAMINHOS no SSM, nunca os valores (G2/G16). Os dois precisam ficar sob
-# /pra/llm/ — é o prefixo que a política da investigadora libera, e um
+# /portcullis/llm/ — é o prefixo que a política da investigadora libera, e um
 # caminho fora dele passa no apply e falha com AccessDenied em execução.
 variable "parametro_chave_llm" {
   type    = string
-  default = "/pra/llm/chave"
+  default = "/portcullis/llm/chave"
 }
 
 variable "parametro_modelo_llm" {
   type    = string
-  default = "/pra/llm/modelo"
+  default = "/portcullis/llm/modelo"
 }

@@ -3,15 +3,15 @@ import json
 
 import pytest
 
-from pra.buscador import handler as buscador
-from pra.buscador.github_api import (
+from portcullis.buscador import handler as buscador
+from portcullis.buscador.github_api import (
     RepositorioGrandeDemais,
     fluxo_com_teto,
 )
-from pra.modelos import FaixaLinhas
+from portcullis.modelos import FaixaLinhas
 
 BUCKET = "pra-pacotes-1"
-FUNCAO = "pra-analisador"
+FUNCAO = "portcullis-analisador"
 TABELA = "pra-auditoria"
 
 TRABALHO_PR = {
@@ -102,11 +102,11 @@ def nuvem(monkeypatch):
     monkeypatch.setattr(
         buscador, "linhas_tocadas_de_push", lambda *a, **k: ({}, True)
     )
-    monkeypatch.setenv("PRA_BUCKET_PACOTES", BUCKET)
-    monkeypatch.setenv("PRA_FUNCAO_ANALISADOR", FUNCAO)
-    monkeypatch.setenv("PRA_TABELA", TABELA)
-    monkeypatch.setenv("PRA_GITHUB_APP_ID", "4589712")
-    monkeypatch.setenv("PRA_PARAM_CHAVE_APP", "/pra/github/chave-privada")
+    monkeypatch.setenv("PORTCULLIS_BUCKET_PACOTES", BUCKET)
+    monkeypatch.setenv("PORTCULLIS_FUNCAO_ANALISADOR", FUNCAO)
+    monkeypatch.setenv("PORTCULLIS_TABELA", TABELA)
+    monkeypatch.setenv("PORTCULLIS_GITHUB_APP_ID", "4589712")
+    monkeypatch.setenv("PORTCULLIS_PARAM_CHAVE_APP", "/portcullis/github/chave-privada")
     return s3, dynamo, lamb
 
 

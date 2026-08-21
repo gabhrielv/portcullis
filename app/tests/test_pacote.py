@@ -4,13 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from pra.analisador.pacote import (
+from portcullis.analisador.pacote import (
     PacoteInvalido,
     escrever_contexto,
     extrair,
     ler_contexto,
 )
-from pra.modelos import Contexto, Evento, FaixaLinhas
+from portcullis.modelos import Contexto, Evento, FaixaLinhas
 
 
 def montar_tar(tmp_path: Path, membros: dict[str, str], nome="codigo.tar.gz") -> Path:
@@ -92,7 +92,7 @@ def test_recusa_tarball_sem_raiz_unica(tmp_path):
 
 def test_recusa_tarball_que_expande_demais(tmp_path, monkeypatch):
     # Bomba de descompressão: 50 KB comprimidos viram 50 MB em disco.
-    from pra.analisador import pacote
+    from portcullis.analisador import pacote
 
     monkeypatch.setattr(pacote, "LIMITE_EXTRACAO_BYTES", 1024)
     tar = montar_tar(tmp_path, {"raiz/grande.bin": "x" * 5000})

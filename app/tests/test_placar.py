@@ -16,7 +16,7 @@ from placar import (
     ruido_removido,
 )
 
-from pra.modelos import Evidencia, Resposta
+from portcullis.modelos import Evidencia, Resposta
 
 
 def evidencia(entrada="nao_sei", sanitizacao="nao_sei", prova=None, prova_valida=False):

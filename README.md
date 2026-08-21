@@ -196,7 +196,7 @@ marco, e é o que o corpus mede.
 código, num endpoint fixo que o modelo não escolhe, com uma chave que o modelo
 nunca vê. Não há ferramenta de rede para o modelo pedir. Também não consegue
 alcançar o GitHub: a investigadora não tem token e não importa
-`pra.github` — verificado por teste, não por disciplina.
+`portcullis.github` — verificado por teste, não por disciplina.
 
 **O que limita o estrago.** Quatro coisas, e nenhuma delas depende do modelo se
 comportar:
@@ -704,8 +704,8 @@ mkdir -p /tmp/pacote/{entrada,saida} && chmod 0777 /tmp/pacote/saida
 # monte entrada/codigo.tar.gz e entrada/contexto.json, então:
 docker run --rm --network=none --read-only --tmpfs /tmp \
   -v /tmp/pacote/entrada:/entrada:ro -v /tmp/pacote/saida:/saida \
-  --entrypoint python pra-analisador:local -c \
-  "from pathlib import Path; from pra.analisador.main import analisar; \
+  --entrypoint python portcullis-analisador:local -c \
+  "from pathlib import Path; from portcullis.analisador.main import analisar; \
    analisar(Path('/entrada'), Path('/saida'))"
 ```
 
@@ -756,7 +756,7 @@ qualquer merge.
 ## Estrutura
 
 ```
-app/src/pra/
+app/src/portcullis/
 ├── modelos.py          contratos; não importa AWS nem GitHub
 ├── decisao/            a regra determinística e as exceções
 ├── analisador/         função pura: pacote entra, achados saem
@@ -777,9 +777,9 @@ infra/modules/          rede, pacotes, fila, dados, alertas, funcoes, analisador
 tocar no loop, e mexer no prompt não pode tocar no transporte.
 
 `test_arquitetura.py` garante mecanicamente as separações que o resto do
-documento promete: o analisador não importa `pra.github`,
-`pra.decisao` nem `pra.persistencia`; a investigadora não importa
-`pra.github` nem `pra.persistencia`; e o agente não importa
+documento promete: o analisador não importa `portcullis.github`,
+`portcullis.decisao` nem `portcullis.persistencia`; a investigadora não importa
+`portcullis.github` nem `portcullis.persistencia`; e o agente não importa
 nenhum dos dois nem `boto3`. Promessa que só existe em prosa é promessa que a
 próxima refatoração quebra.
 

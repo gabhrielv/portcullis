@@ -1,12 +1,12 @@
 import pytest
 
-from pra.buscador.github_api import (
+from portcullis.buscador.github_api import (
     ARQUIVO_INTEIRO,
     LIMITE_ARQUIVOS_GITHUB,
     faixas_de_patch,
     mapear_arquivos,
 )
-from pra.modelos import FaixaLinhas
+from portcullis.modelos import FaixaLinhas
 
 # Montado como lista para a linha de contexto vazia ser um espaço de verdade,
 # como o GitHub manda, e não uma linha vazia que o editor poderia comer.

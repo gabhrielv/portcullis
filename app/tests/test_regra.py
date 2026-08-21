@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from pra.decisao.excecoes import EXCECOES, silenciado
-from pra.decisao.regra import (
+from portcullis.decisao.excecoes import EXCECOES, silenciado
+from portcullis.decisao.regra import (
     CWES_DE_FLUXO,
     CWES_FORA_DE_FLUXO,
     REGRAS_DE_FLUXO,
@@ -15,7 +15,7 @@ from pra.decisao.regra import (
     investigavel,
     nao_conclui,
 )
-from pra.modelos import (
+from portcullis.modelos import (
     Achado,
     Contexto,
     EstadoVeredito,

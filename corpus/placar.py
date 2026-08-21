@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from math import ceil
 
-from pra.modelos import Evidencia, Resposta
+from portcullis.modelos import Evidencia, Resposta
 
 
 def mede(entrada: dict) -> bool:

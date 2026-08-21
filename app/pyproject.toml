@@ -1,5 +1,5 @@
 [project]
-name = "pra"
+name = "portcullis"
 version = "0.1.0"
 requires-python = ">=3.12"
 # Vazio de propósito: cada perfil abaixo instala só o que usa.
@@ -54,4 +54,4 @@ line-length = 100
 # Sem isto o ruff não reconhece `pra` como pacote do projeto quando roda
 # sobre `scripts/`, e junta os imports dele com os de terceiros.
 [tool.ruff.lint.isort]
-known-first-party = ["pra"]
+known-first-party = ["portcullis"]

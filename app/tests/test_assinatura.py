@@ -1,7 +1,7 @@
 import hashlib
 import hmac
 
-from pra.webhook.assinatura import conferir_assinatura
+from portcullis.webhook.assinatura import conferir_assinatura
 
 SEGREDO = "segredo-de-teste"
 CORPO = b'{"action":"opened"}'

@@ -12,13 +12,13 @@ REPETICOES ?= 1
 # padrão do `.env.example`: sem ele um clone novo falha em `make corpus` com
 # "variável de ambiente não definida", que não diz o que fazer.
 -include .env
-PRA_PARAM_CHAVE_LLM ?= /pra/llm/chave
-PRA_PARAM_MODELO_LLM ?= /pra/llm/modelo
-export PRA_PARAM_CHAVE_LLM PRA_PARAM_MODELO_LLM
+PORTCULLIS_PARAM_CHAVE_LLM ?= /portcullis/llm/chave
+PORTCULLIS_PARAM_MODELO_LLM ?= /portcullis/llm/modelo
+export PORTCULLIS_PARAM_CHAVE_LLM PORTCULLIS_PARAM_MODELO_LLM
 REGRAS := $(DIR_REGRAS)/default.yaml $(DIR_REGRAS)/security-audit.yaml
 # Os dois conjuntos não se contêm: medido em 12/08/2026, cada um acha ERROR
 # que o outro não acha. Rodar os dois custa o mesmo tempo.
-PRA_REGRAS := $(CURDIR)/$(DIR_REGRAS)/default.yaml,$(CURDIR)/$(DIR_REGRAS)/security-audit.yaml
+PORTCULLIS_REGRAS := $(CURDIR)/$(DIR_REGRAS)/default.yaml,$(CURDIR)/$(DIR_REGRAS)/security-audit.yaml
 
 .PHONY: instalar teste teste-integracao lint regras imagem imagem-push subir \
         pacote-lambda validar-infra infra url-webhook destruir corpus-congelar \
@@ -49,7 +49,7 @@ regras: $(REGRAS)
 # Regenera contexto.json e achados.json de cada caso do corpus. Roda o semgrep
 # de verdade, por isso fica fora do `make teste`. CASO="id id" limita o alcance.
 corpus-congelar: $(MARCA) $(REGRAS)
-	PRA_REGRAS="$(PRA_REGRAS)" $(PY) corpus/congelar.py $(CASO)
+	PORTCULLIS_REGRAS="$(PORTCULLIS_REGRAS)" $(PY) corpus/congelar.py $(CASO)
 
 # O placar da D12: critério de aceite de qualquer mexida no prompt ou no modelo.
 # Gasta cota do provedor e lê a chave do SSM, por isso fica fora do `make teste`.
@@ -64,7 +64,7 @@ corpus-continuar: $(MARCA)
 	$(PY) corpus/rodar.py --repeticoes $(REPETICOES) --continuar $(CASO)
 
 teste-integracao: $(MARCA) $(REGRAS)
-	cd app && PRA_REGRAS="$(PRA_REGRAS)" ../$(PY) -m pytest -v -m integracao
+	cd app && PORTCULLIS_REGRAS="$(PORTCULLIS_REGRAS)" ../$(PY) -m pytest -v -m integracao
 
 # `--config` explícito: scripts/ fica fora do alcance do app/pyproject.toml, e
 # sem isto o ruff usaria o padrão lá e outra config aqui, discordando de si.
@@ -75,7 +75,7 @@ lint: $(MARCA)
 	  src tests ../scripts ../corpus/*.py
 
 imagem: $(REGRAS)
-	docker build -f docker/analisador.Dockerfile -t pra-analisador:local .
+	docker build -f docker/analisador.Dockerfile -t portcullis-analisador:local .
 
 # Um zip só para as quatro Lambdas de fora da VPC. O perfil `nuvem` traz
 # requests e PyJWT; o boto3 sai porque o runtime python3.12 já tem ele.
@@ -111,7 +111,7 @@ url-webhook:
 	# O passo de deploy do alvo consulta esta URL, e ela tambem muda a cada
 	# apply. Sem isto o deploy consulta um endereco morto e reprova sempre.
 	cd infra && $(TF) output -raw url_api \
-	  | gh secret set PRA_URL --repo $(REPO_ALVO)
+	  | gh secret set PORTCULLIS_URL --repo $(REPO_ALVO)
 
 destruir:
 	cd infra && $(TF) destroy
@@ -127,7 +127,7 @@ imagem-push: imagem
 	$(eval REPO := $(shell cd infra && $(TF) output -raw url_repositorio_analisador))
 	aws ecr get-login-password --region us-east-1 \
 	  | docker login --username AWS --password-stdin $(REPO)
-	docker tag pra-analisador:local $(REPO):local
+	docker tag portcullis-analisador:local $(REPO):local
 	docker push $(REPO):local
 
 # Sobe tudo do zero, na ordem que funciona. Os dois `apply` sao inevitaveis:

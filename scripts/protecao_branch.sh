@@ -14,13 +14,13 @@
 #
 # Por que desligar é às vezes necessário: com checagem obrigatória e a
 # infraestrutura destruída, todo PR novo fica esperando para sempre um
-# `seguranca/pra` que ninguém vai reportar.
+# `seguranca/portcullis` que ninguém vai reportar.
 
 set -euo pipefail
 
 REPO="${REPO_ALVO:-gabhrielv/hoppr}"
 BRANCH="${BRANCH_ALVO:-main}"
-CHECAGEM="seguranca/pra"
+CHECAGEM="seguranca/portcullis"
 CAMINHO="repos/${REPO}/branches/${BRANCH}/protection"
 
 ligar() {

@@ -1,6 +1,6 @@
-from pra.decisao.regra import VERSAO_REGRA
-from pra.github.checks import LIMITE_ANOTACOES, montar_saida
-from pra.modelos import Achado, EstadoVeredito, Severidade, Veredito
+from portcullis.decisao.regra import VERSAO_REGRA
+from portcullis.github.checks import LIMITE_ANOTACOES, montar_saida
+from portcullis.modelos import Achado, EstadoVeredito, Severidade, Veredito
 
 
 def achado(n: int, severidade=Severidade.ERRO, categoria="security"):

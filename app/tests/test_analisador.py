@@ -3,10 +3,10 @@ from pathlib import Path
 
 from test_pacote import montar_tar
 
-from pra.analisador import main as analisador
-from pra.analisador.pacote import NOME_CONTEXTO, escrever_contexto
-from pra.analisador.semgrep import SaidaSemgrep, SemgrepFalhou
-from pra.modelos import Achado, Contexto, Evento, FaixaLinhas, Severidade
+from portcullis.analisador import main as analisador
+from portcullis.analisador.pacote import NOME_CONTEXTO, escrever_contexto
+from portcullis.analisador.semgrep import SaidaSemgrep, SemgrepFalhou
+from portcullis.modelos import Achado, Contexto, Evento, FaixaLinhas, Severidade
 
 
 def montar_pacote(tmp_path: Path) -> Path:
@@ -260,7 +260,7 @@ def _semgrep_vazio(*_a, **_k):
 
 
 def _iac(achados=(), versao="3.3.13"):
-    from pra.analisador.checkov import SaidaCheckov
+    from portcullis.analisador.checkov import SaidaCheckov
 
     return SaidaCheckov(achados=tuple(achados), versao=versao)
 
@@ -308,7 +308,7 @@ def test_checkov_que_falha_nao_derruba_a_analise(tmp_path, monkeypatch):
     """O semgrep já rodou. Perder o resultado dele porque o Checkov tropeçou
     seria trocar análise parcial por nenhuma — e análise nenhuma trava o PR
     sem dizer por quê."""
-    from pra.analisador.checkov import CheckovFalhou as Falhou
+    from portcullis.analisador.checkov import CheckovFalhou as Falhou
 
     def explode(*_a, **_k):
         raise Falhou("checkov não está instalado na imagem")

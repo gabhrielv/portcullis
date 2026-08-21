@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from pra.decisao.regra import investigavel, silencia_por_evidencia
-from pra.modelos import Achado, Evidencia, Resposta, Severidade
+from portcullis.decisao.regra import investigavel, silencia_por_evidencia
+from portcullis.modelos import Achado, Evidencia, Resposta, Severidade
 
 RAIZ_CORPUS = Path(__file__).resolve().parents[2] / "corpus"
 GABARITOS_VALIDOS = {"VULNERAVEL", "FALSO_POSITIVO"}

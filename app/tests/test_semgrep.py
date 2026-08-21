@@ -4,13 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from pra.analisador.semgrep import (
+from portcullis.analisador.semgrep import (
     SemgrepFalhou,
     erros_de_analise,
     parsear,
     rodar,
 )
-from pra.modelos import Severidade
+from portcullis.modelos import Severidade
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -82,7 +82,7 @@ def test_sem_erros_de_analise_devolve_lista_vazia():
 
 
 def test_rodar_sem_conjunto_de_regras_falha_alto(tmp_path, monkeypatch):
-    monkeypatch.delenv("PRA_REGRAS", raising=False)
+    monkeypatch.delenv("PORTCULLIS_REGRAS", raising=False)
     with pytest.raises(SemgrepFalhou):
         rodar(tmp_path)
 
@@ -131,7 +131,7 @@ def test_rodar_encontra_achados_reais_no_hoppr(tmp_path):
 
     from conftest import CAMINHO_HOPPR
 
-    regras = os.environ.get("PRA_REGRAS", "")
+    regras = os.environ.get("PORTCULLIS_REGRAS", "")
     if not CAMINHO_HOPPR.exists() or not regras:
         pytest.skip("hoppr ou conjunto de regras ausente")
 
@@ -201,10 +201,10 @@ def test_arquivo_de_regras_ausente_falha_alto(tmp_path):
 
 
 def test_prefixo_vem_das_pastas_do_arquivo_de_regras():
-    from pra.analisador.semgrep import prefixo_de_regra
+    from portcullis.analisador.semgrep import prefixo_de_regra
 
     raiz = Path("/tmp/tmpabc/gabhrielv-hoppr-a1b2c3")
-    assert prefixo_de_regra("/opt/pra/regras/default.yaml", raiz) == "opt.pra.regras."
+    assert prefixo_de_regra("/opt/portcullis/regras/default.yaml", raiz) == "opt.portcullis.regras."
     assert prefixo_de_regra(str(raiz.parent / "regras.yaml"), raiz) == ""
 
 
@@ -214,7 +214,7 @@ def test_id_da_regra_nao_carrega_o_caminho_do_arquivo_de_regras():
     saida = {
         "results": [
             {
-                "check_id": "opt.pra.regras.python.jwt.security.jwt-hardcode",
+                "check_id": "opt.portcullis.regras.python.jwt.security.jwt-hardcode",
                 "path": "a.py",
                 "start": {"line": 1},
                 "end": {"line": 1},
@@ -222,7 +222,7 @@ def test_id_da_regra_nao_carrega_o_caminho_do_arquivo_de_regras():
             }
         ]
     }
-    achado = parsear(saida, ("opt.pra.regras.",))[0]
+    achado = parsear(saida, ("opt.portcullis.regras.",))[0]
     assert achado.regra == "python.jwt.security.jwt-hardcode"
 
 

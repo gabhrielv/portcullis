@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from pra.publicador import handler as publicador
+from portcullis.publicador import handler as publicador
 
 BUCKET = "pra-pacotes-1"
 SHA = "aaa111"
@@ -90,9 +90,9 @@ def nuvem(monkeypatch):
     monkeypatch.setattr(publicador, "gravar_auditoria", auditoria)
     monkeypatch.setattr(publicador, "parametro_ssm", lambda nome: "chave-pem")
     monkeypatch.setattr(publicador, "token_de_instalacao", lambda *a, **k: "ghs_t")
-    monkeypatch.setenv("PRA_TABELA", "pra-auditoria")
-    monkeypatch.setenv("PRA_GITHUB_APP_ID", "4589712")
-    monkeypatch.setenv("PRA_PARAM_CHAVE_APP", "/pra/github/chave-privada")
+    monkeypatch.setenv("PORTCULLIS_TABELA", "pra-auditoria")
+    monkeypatch.setenv("PORTCULLIS_GITHUB_APP_ID", "4589712")
+    monkeypatch.setenv("PORTCULLIS_PARAM_CHAVE_APP", "/portcullis/github/chave-privada")
     return github, auditoria
 
 

@@ -2,11 +2,11 @@ from pathlib import Path
 
 from dubles import ClienteFalso, ClienteQueFalha
 
-from pra.agente.ferramentas import Caixa
-from pra.agente.loop import PASSOS_MAX, investigar
-from pra.agente.prompt import ABERTURA, FECHAMENTO, FERRAMENTAS
-from pra.llm.cliente import Chamada, CotaEsgotada, ProvedorIndisponivel, RespostaLLM
-from pra.modelos import Achado, Resposta, Severidade
+from portcullis.agente.ferramentas import Caixa
+from portcullis.agente.loop import PASSOS_MAX, investigar
+from portcullis.agente.prompt import ABERTURA, FECHAMENTO, FERRAMENTAS
+from portcullis.llm.cliente import Chamada, CotaEsgotada, ProvedorIndisponivel, RespostaLLM
+from portcullis.modelos import Achado, Resposta, Severidade
 
 ARQUIVO = "app/db.py"
 

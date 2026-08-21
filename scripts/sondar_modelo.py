@@ -22,11 +22,11 @@ import sys
 
 import requests
 
-from pra.config import parametro_ssm
-from pra.llm.cliente import Ferramenta
-from pra.llm.groq import URL, ClienteGroq
+from portcullis.config import parametro_ssm
+from portcullis.llm.cliente import Ferramenta
+from portcullis.llm.groq import URL, ClienteGroq
 
-PARAMETRO_CHAVE = "/pra/llm/chave"
+PARAMETRO_CHAVE = "/portcullis/llm/chave"
 URL_MODELOS = "https://api.groq.com/openai/v1/models"
 TEMPO_LIMITE_S = 30
 
@@ -128,7 +128,7 @@ def principal(argv: list[str]) -> int:
         return 1
 
     print("Serve. Grave o nome no SSM:")
-    print("  aws ssm put-parameter --name /pra/llm/modelo \\")
+    print("  aws ssm put-parameter --name /portcullis/llm/modelo \\")
     print(f"    --type String --value {modelo} --overwrite")
     return 0
 

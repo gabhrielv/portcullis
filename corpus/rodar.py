@@ -35,14 +35,14 @@ from pathlib import Path
 from congelar import CASOS, casa_alvo, ler_gabarito, raiz_do_caso
 from placar import aceite, evidencia_bate, mede, render, resumir
 
-from pra.agente.ferramentas import Caixa
-from pra.agente.loop import investigar
-from pra.agente.prompt import VERSAO_PROMPT
-from pra.config import obrigatoria, parametro_ssm
-from pra.decisao.regra import silencia_por_evidencia
-from pra.llm.cliente import CotaEsgotada, ProvedorIndisponivel
-from pra.llm.groq import ClienteGroq
-from pra.modelos import Achado, Severidade
+from portcullis.agente.ferramentas import Caixa
+from portcullis.agente.loop import investigar
+from portcullis.agente.prompt import VERSAO_PROMPT
+from portcullis.config import obrigatoria, parametro_ssm
+from portcullis.decisao.regra import silencia_por_evidencia
+from portcullis.llm.cliente import CotaEsgotada, ProvedorIndisponivel
+from portcullis.llm.groq import ClienteGroq
+from portcullis.modelos import Achado, Severidade
 
 PLACARES = Path(__file__).resolve().parent / "placares"
 
@@ -186,8 +186,8 @@ def principal(argumentos: list[str]) -> int:
         return 2
 
     cliente = ClienteGroq(
-        parametro_ssm(obrigatoria("PRA_PARAM_CHAVE_LLM")),
-        parametro_ssm(obrigatoria("PRA_PARAM_MODELO_LLM")),
+        parametro_ssm(obrigatoria("PORTCULLIS_PARAM_CHAVE_LLM")),
+        parametro_ssm(obrigatoria("PORTCULLIS_PARAM_MODELO_LLM")),
     )
     repeticoes = max(1, opcoes.repeticoes)
     antes = medidos_antes(cliente.modelo, repeticoes) if opcoes.continuar else {}
