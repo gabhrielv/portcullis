@@ -637,11 +637,11 @@ falhar na segunda — tinha teto de 8.192 tokens, que o loop estoura por volta d
 terceiro passo. O nome do provedor e do modelo vivem no Parameter Store, nunca
 no código.
 
-### Qual modelo, decidido pelo corpus
+### Os modelos medidos, e o que o corpus disse de cada um
 
-O provedor oferece dois modelos de produção com *tool calling*. A expectativa
-razoável — tarefa de rastrear fluxo de dados com conteúdo adversarial no meio —
-era que o maior se pagasse. **O corpus disse o contrário, nos quatro eixos:**
+Dois modelos de produção do provedor foram medidos contra o mesmo corpus, com o
+mesmo prompt. O nome deles não aparece aqui nem no código — vive no Parameter
+Store, e trocar é mudar um parâmetro. **O que importa é o que a medição disse.**
 
 | | menor | maior |
 |---|---|---|
@@ -650,12 +650,57 @@ era que o maior se pagasse. **O corpus disse o contrário, nos quatro eixos:**
 | custo relativo | **1×** | ~3,2× |
 | ferramenta inexistente chamada | **nunca** | 2 execuções |
 
-O maior inventa ferramentas que não foram declaradas — `json` numa execução,
-`commentary` noutra — e o provedor recusa a chamada com `400`. A reamostragem
-(abaixo) reduziu a frequência sem eliminar. O menor nunca fez isso.
+O maior inventa ferramentas que não foram declaradas e o provedor recusa a
+chamada com `400`. A reamostragem reduziu a frequência sem eliminar.
 
-É a razão de a interface do cliente de modelo existir: trocar de modelo é mudar
-um parâmetro no Parameter Store, e o corpus é quem decide qual fica.
+#### O placar, versão a versão
+
+O prompt passou por cinco versões, e cada mudança foi medida. A tabela é o
+histórico honesto, não a melhor rodada:
+
+| prompt | modelo | veredito | raciocínio | ruído removido | falso-neg. | estabilidade |
+|---|---|---|---|---|---|---|
+| v3 | menor | **19/22** | **18/22** (base 1/22) | **5/7** | 1 | 21/22 |
+| v5 | menor | 15/18 | 14/18 | 2/5 | 0 | 15/18 |
+| v6 | menor | — | — | 0/4 | 0 | 1/4 |
+| v6 | maior | — | — | 0/4 | 0 | 1/4 |
+
+A v3 é a melhor rodada e **reprovou por um único falso-negativo**, num caso de
+código morto recém-adicionado. A causa foi diagnosticada: a política que manda
+bloquear código novo mesmo sem chamador estava na arquitetura e nunca fora
+escrita no texto que o agente lê.
+
+As versões seguintes consertaram esse caso — e derrubaram o ruído removido. As
+duas mudanças de prompt feitas por raciocínio não moveram o número na direção
+prevista, nenhuma das duas vezes.
+
+#### O que a medição realmente encontrou
+
+Lendo a evidência crua em vez do placar, o quadro é outro. O agente **resolve**
+os casos difíceis: no par de sanitização distante ele achou a validação num
+middleware que roda antes da rota, citou `arquivo:linha`, e a conferência de
+prova validou o endereço. Fez isso em execuções repetidas.
+
+O problema é consistência. Duas execuções do **mesmo caso, no mesmo modelo, com
+o mesmo prompt**, separadas por uma hora:
+
+```
+primeira rodada:  [1] sanitização encontrada, prova válida
+                  [2] sanitização encontrada, prova válida
+                  [3] nao_sei
+
+segunda rodada:   [1] sanitização NÃO encontrada
+                  [2] sanitização NÃO encontrada
+                  [3] nao_sei
+```
+
+Sem erro de rede, sem estouro de orçamento, sem recusa do provedor. Com
+`temperature: 0`. **O critério de aceite exige acerto nas três execuções**, e
+essa é exatamente a propriedade que a repetição foi construída para detectar.
+
+**Conclusão medida: a triagem tem a capacidade, e não tem a consistência que o
+critério exige.** É a resposta que o corpus existe para dar — e é mais útil que
+um número obtido afrouxando a régua depois de ver o resultado.
 
 ### O que o provedor não conta
 
@@ -793,25 +838,36 @@ Este README separa as duas coisas de propósito.
 e 438 GB-s por análise, o pico de 695 MB, e os 16 achados do `hoppr` reproduzidos
 achado por achado entre a máquina e a nuvem.
 
-**Verificado sem rede:** as duas linhas de base do corpus, os 465 testes de unidade e 14
+**Verificado sem rede:** as duas linhas de base do corpus, os 497 testes de unidade e 14
 de integração, e as separações de privilégio checadas por teste. Também: que os
 150 arquivos de palheiro não disparam **nenhuma** regra do Semgrep, que
 `buscar("validar")` estoura o teto de 50 na escala grande, e que os 140 CWE dos
 conjuntos congelados estão todos classificados.
 
-**Medido contra o modelo de verdade:** que os dois modelos de produção fazem
-*tool calling* confiável o bastante para o harness; o custo de **2.465 tokens por
-investigação**; os três limites do provedor descritos acima; e a comparação entre
-os dois modelos, que decidiu qual fica.
+**Medido contra os modelos de verdade:** que os dois modelos de produção fazem
+*tool calling* utilizável pelo harness; o custo por investigação; os três limites
+do provedor descritos acima; a comparação entre os dois; e o placar versão a
+versão, na tabela acima.
 
-O placar do corpus inteiro, com o prompt atual, ainda **não** foi fechado: o teto
-diário de tokens permite cerca de uma medição séria por dia, e a série que
-encontrou os defeitos acima consumiu essas oportunidades. A execução completa
-mais recente, com o prompt anterior, deu veredito 19/22 contra 15/22 da linha de
-base, raciocínio 18/22 contra 1/22, ruído removido 5/7 e estabilidade 21/22 —
-reprovando por **um** falso-negativo, no caso de código morto recém-adicionado.
-A causa era o texto do prompt não conter a política que o próprio documento de
-arquitetura define, e a correção está verificada nesse caso isoladamente.
+**O aceite da §6 não foi atingido, e isso está medido.** O melhor placar completo
+— veredito 19/22 contra 15/22 da linha de base, raciocínio 18/22 contra 1/22,
+ruído removido 5/7 — reprovou por um falso-negativo. As correções seguintes
+fecharam esse caso e derrubaram o ruído removido, e a leitura da evidência crua
+mostrou por quê: o agente resolve os casos difíceis, mas não nas três execuções
+que o critério exige.
+
+Três contaminações da medição foram encontradas e corrigidas no caminho, e vale
+listá-las porque são o tipo de defeito que um placar bonito esconderia:
+
+| defeito | o que se disfarçava de erro do agente |
+|---|---|
+| `400` de geração malformada não era reamostrado | virava `nao_sei`, que bloqueia |
+| teto por minuto consumia tentativa | rajada de três derrubava a investigação |
+| recusa do provedor era pontuada | falha de cota contava como resposta errada |
+
+Nos três casos o corpus estava medindo infraestrutura achando que media
+raciocínio, e nos três quem revelou foi **ler a evidência crua** — não o placar,
+não os testes. É um resultado do instrumento tanto quanto do agente.
 
 **Medido na nuvem, com a triagem no ar:**
 
