@@ -1,25 +1,20 @@
-# PRA — Pull-Request Analyzer
+# Portcullis — Pull-Request Analyzer
 
 Portão de segurança para CI/CD. Um pull request abre, o código é analisado numa
 conta da AWS, e o botão de merge fica cinza se **aquele PR** introduziu um
 problema.
 
-A ênfase está em *aquele PR*. Rodar um scanner é fácil; a parte difícil é não
-transformar a dívida acumulada do repositório em ruído que todo mundo aprende a
-ignorar.
-
-Há duas etapas de filtragem, e elas são bem diferentes. A primeira é uma regra
+Há duas etapas bem diferentes de filtragem. A primeira é uma regra
 determinística: o achado caiu numa linha que este PR adicionou? A segunda é uma
 investigação, feita por um agente com duas ferramentas de leitura, que responde
-duas perguntas sobre o achado antes de a regra decidir. **A regra decide sempre;
-o agente nunca.**
+duas perguntas sobre o achado antes de a regra decidir.
 
 ---
 
 ## O que ele faz, em uma execução real
 
-Medido no `hoppr`, um repositório Python/FastAPI + Next.js com 16 achados do
-Semgrep acumulados:
+Medido no `hoppr`, um repositório privado Python/FastAPI + Next.js com 16
+achados do Semgrep acumulados:
 
 | PR | achados novos | veredito | merge |
 |---|---|---|---|
@@ -31,7 +26,7 @@ Nos dois casos os 16 achados pré-existentes aparecem no resumo, recolhidos, e
 semana — e um portão desligado protege menos que nenhum, porque dá a impressão
 de que alguém está olhando.
 
-### O que a triagem mudou, em três PRs reais
+### O que a triagem mudou
 
 Os três rodaram no `hoppr` com o pipeline completo. Os dois primeiros carregam
 o mesmo tipo de achado — `ERROR` de categoria `security`, numa linha
@@ -135,7 +130,7 @@ sanitizacao_encontrada   há validação no caminho que chega até esta linha?
 Nada além disso. O agente **não emite veredito** — não escreve severidade, não
 recomenda, não sabe o que vai acontecer com a resposta dele.
 
-### O agente só silencia, e nunca promove
+### O agente só silencia
 
 Esta é a assimetria que sustenta o resto. A regra determinística lê a evidência
 e pode usá-la **apenas para tirar um achado do bloqueio**, nunca para colocar
@@ -767,14 +762,14 @@ app/src/portcullis/
 ├── modelos.py          contratos; não importa AWS nem GitHub
 ├── decisao/            a regra determinística e as exceções
 ├── analisador/         função pura: pacote entra, achados saem
-├── buscador/           GitHub → pacote no S3
-├── llm/                contrato com o provedor de modelo, e a implementação
-├── agente/             as duas ferramentas, o prompt e o loop
-├── investigadora/      achados.json → loop → evidencias.json
-├── github/             JWT do App, token de instalação, Check Run
-├── publicador/         regra + evidência → Check Run → auditoria
-├── consulta/            GET /veredito
-└── webhook/             HMAC e filtro de evento
+├── buscador/            GitHub → pacote no S3
+├── llm/                 contrato com o provedor de modelo, e a implementação
+├── agente/               as duas ferramentas, o prompt e o loop
+├── investigadora/        achados.json → loop → evidencias.json
+├── github/               JWT do App, token de instalação, Check Run
+├── publicador/           regra + evidência → Check Run → auditoria
+├── consulta/             GET /veredito
+└── webhook/               HMAC e filtro de evento
 
 corpus/                 os 22 casos, o gabarito, o palheiro e o placar
 infra/modules/          rede, pacotes, fila, dados, alertas, funcoes, analisador
